@@ -694,9 +694,457 @@
     .result-stats { grid-template-columns: repeat(3, 1fr); }
     h1.hero-title { font-size: 2.5rem; }
   }
+
+  /* ========== GUEST BANNER ========== */
+  #login-wall {
+    position: fixed;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    width: calc(100% - 2rem);
+    max-width: 480px;
+    animation: slideUp 0.4s ease;
+  }
+
+  #login-wall.hidden { display: none; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  .login-card {
+    background: var(--card);
+    border: 1px solid rgba(108,99,255,0.3);
+    border-radius: 16px;
+    padding: 1rem 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .login-sub {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.4;
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .login-sub strong {
+    color: var(--text);
+    display: block;
+    margin-bottom: 0.15rem;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.88rem;
+  }
+
+  .btn-google-big {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1.2rem;
+    background: white;
+    color: #333;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .btn-google-big:hover {
+    background: #f5f5f5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  .banner-close {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.2rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .banner-close:hover { color: var(--text); }
+
+  /* ========== TOP LOGO BAR ========== */
+  .top-logo-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    z-index: 99;
+    pointer-events: none;
+  }
+
+  .top-logo-bar.hidden { display: none; }
+
+  .logo-home-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(17,17,24,0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.4rem 0.9rem;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    pointer-events: all;
+    text-decoration: none;
+  }
+
+  .logo-home-btn .logo-mark {
+    font-size: 1rem;
+    color: var(--accent);
+  }
+
+  .logo-home-btn:hover {
+    border-color: rgba(108,99,255,0.4);
+    color: var(--accent);
+  }
+
+  /* Add top padding to pages that have the logo bar */
+  .has-top-bar {
+    padding-top: 64px;
+  }
+
+  /* ========== SIDEBAR ========== */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 72px;
+    height: 100vh;
+    background: rgba(17,17,24,0.97);
+    backdrop-filter: blur(16px);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.2rem 0;
+    gap: 0.4rem;
+    z-index: 100;
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* Collapsed: slide off-screen to the right */
+  .sidebar.collapsed {
+    transform: translateX(100%);
+  }
+
+  /* Toggle button — always visible */
+  .sidebar-toggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 101;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(17,17,24,0.95);
+    backdrop-filter: blur(8px);
+    color: var(--muted);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .sidebar-toggle:hover { color: var(--accent); border-color: rgba(108,99,255,0.4); }
+
+  /* When sidebar is open, move toggle button inside it */
+  .sidebar:not(.collapsed) ~ .sidebar-toggle,
+  body.sidebar-open .sidebar-toggle {
+    right: 80px;
+  }
+
+  .sidebar-logo {
+    font-size: 1.3rem;
+    margin-bottom: 0.8rem;
+    opacity: 0.5;
+  }
+
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    width: 52px;
+    padding: 0.65rem 0;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .nav-btn .nav-icon { font-size: 1.2rem; line-height: 1; }
+  .nav-btn:hover { color: var(--text); background: rgba(108,99,255,0.1); }
+  .nav-btn.active { color: var(--accent); background: rgba(108,99,255,0.15); }
+
+  /* Body padding when sidebar open */
+  body { padding-right: 72px; transition: padding-right 0.3s cubic-bezier(0.4,0,0.2,1); }
+  body.sidebar-collapsed { padding-right: 0; }
+
+  /* Hide sidebar during quiz/config/results */
+  .sidebar.hidden-nav { display: none; }
+  .sidebar.hidden-nav ~ .sidebar-toggle { display: none; }
+
+  @media (max-width: 520px) {
+    .sidebar { width: 64px; }
+    body { padding-right: 64px; }
+    .nav-btn { width: 46px; font-size: 0.5rem; }
+  }
+
+  /* ========== STATS PAGE ========== */
+  #stats-page {
+    min-height: 100vh;
+    padding: 2rem 1.5rem 6rem;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 0.4rem;
+  }
+
+  .page-sub {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-bottom: 2rem;
+  }
+
+  .stats-section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-bottom: 0.8rem;
+    margin-top: 1.8rem;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.8rem;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.2rem;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card:hover { border-color: rgba(108,99,255,0.3); }
+
+  .stat-card .sc-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.4rem;
+  }
+
+  .stat-card .sc-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+  }
+
+  .sc-num.purple { color: var(--accent); }
+  .sc-num.green  { color: var(--success); }
+  .sc-num.red    { color: var(--error); }
+  .sc-num.yellow { color: var(--warning); }
+  .sc-num.white  { color: var(--text); }
+
+  /* Progress bar inside stat card */
+  .sc-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 100px;
+    margin-top: 0.6rem;
+    overflow: hidden;
+  }
+  .sc-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    background: linear-gradient(90deg, var(--accent), #9c94ff);
+  }
+
+  /* History list */
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+  }
+
+  .history-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.9rem 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .hi-score {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-width: 3.5rem;
+  }
+
+  .hi-score.pass { color: var(--success); }
+  .hi-score.fail { color: var(--error); }
+
+  .hi-meta {
+    flex: 1;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .hi-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .hi-badge.pass { background: rgba(67,233,123,0.1); color: var(--success); }
+  .hi-badge.fail { background: rgba(255,101,132,0.1); color: var(--error); }
+
+  /* ========== ABOUT PAGE ========== */
+  #about-page {
+    min-height: 100vh;
+    padding: 2rem 1.5rem 6rem;
+    max-width: 680px;
+    margin: 0 auto;
+    direction: rtl;
+  }
+
+  .about-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .about-section h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+    color: var(--accent);
+  }
+
+  .about-section p {
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .about-section ul {
+    list-style: none;
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 2;
+  }
+
+  .about-section ul li::before {
+    content: '✦ ';
+    color: var(--accent);
+    font-size: 0.65rem;
+  }
+
+  .about-badge-row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 0.8rem;
+  }
+
+  .about-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    background: rgba(108,99,255,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(108,99,255,0.2);
+  }
 </style>
 </head>
-<body>
+<body class="sidebar-collapsed">
+
+<!-- Guest Banner (shown when not logged in) -->
+<div id="login-wall" class="hidden">
+  <div class="login-card">
+    <div class="login-sub">
+      <strong>⚠️ מצב אורח</strong>
+      ההתקדמות לא נשמרת — התחבר כדי לשמור בין מכשירים
+    </div>
+    <button class="btn-google-big" onclick="loginWithGoogle()">
+      <svg width="16" height="16" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      התחבר
+    </button>
+    <button class="banner-close" onclick="document.getElementById('login-wall').classList.add('hidden')" title="סגור">✕</button>
+  </div>
+</div>
+
+<!-- Top Logo Bar (shown on all pages except loading/quiz) -->
+<div class="top-logo-bar hidden" id="top-logo-bar">
+  <button class="logo-home-btn" onclick="navTo('home')">
+    <span class="logo-mark">✦</span> Quiz Trainer
+  </button>
+</div>
 
 <!-- Loading -->
 <div id="loading" class="screen">
@@ -725,23 +1173,20 @@
 
   <div class="stats-strip">
     <div class="stat-item">
-      <div class="stat-num" id="stat-total">—</div>
-      <div class="stat-label">Questions</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-num" id="stat-exams">4</div>
-      <div class="stat-label">Exam Sets</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-num">65%</div>
-      <div class="stat-label">Pass Score</div>
-    </div>
-    <div class="stat-item">
       <div class="stat-num" id="stat-best">—</div>
       <div class="stat-label">Best Score</div>
     </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-unique">0</div>
+      <div class="stat-label">Unique Qs</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-answered">0</div>
+      <div class="stat-label">Answered</div>
+    </div>
   </div>
 
+  <span id="stat-total" style="display:none"></span>
   <div class="mode-grid">
     <div class="mode-card purple" onclick="startMode('random')">
       <div class="mode-icon">🎲</div>
@@ -875,47 +1320,174 @@
   </div>
 </div>
 
+<!-- Stats Page -->
+<div id="stats-page" class="screen hidden has-top-bar">
+  <div class="page-title">📊 סטטיסטיקות</div>
+  <div class="page-sub">כל הנתונים שלך במקום אחד</div>
+
+  <div class="stats-section-title">ביצועים כלליים</div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="sc-num purple" id="sp-best">—</div>
+      <div class="sc-label">הציון הטוב ביותר</div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-num green" id="sp-unique">0</div>
+      <div class="sc-label">שאלות ייחודיות שנוסו</div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-num white" id="sp-answered">0</div>
+      <div class="sc-label">סה"כ תשובות (כולל חזרות)</div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-num yellow" id="sp-wrong-count">0</div>
+      <div class="sc-label">שאלות שגויות בבנק</div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-num purple" id="sp-total">—</div>
+      <div class="sc-label">סה"כ שאלות בבנק</div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-num white" id="sp-quizzes">0</div>
+      <div class="sc-label">קוויזים שהושלמו</div>
+    </div>
+  </div>
+
+  <div class="stats-section-title">כיסוי שאלות</div>
+  <div class="stats-grid">
+    <div class="stat-card" style="grid-column: span 2">
+      <div class="sc-num purple" id="sp-coverage">0%</div>
+      <div class="sc-label">אחוז כיסוי הבנק</div>
+      <div class="sc-bar"><div class="sc-bar-fill" id="sp-coverage-bar" style="width:0%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-num green" id="sp-accuracy">—</div>
+      <div class="sc-label">אחוז דיוק כולל</div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-num red" id="sp-wrong-pct">—</div>
+      <div class="sc-label">אחוז שגיאות</div>
+    </div>
+  </div>
+
+  <div class="stats-section-title">היסטוריית קוויזים</div>
+  <div class="history-list" id="sp-history">
+    <div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:1rem">
+      עדיין אין היסטוריה — השלם קוויז כדי להתחיל
+    </div>
+  </div>
+
+  <div style="margin-top:1.5rem">
+    <button class="btn btn-ghost" onclick="clearAllStats()" style="border-color:rgba(255,101,132,0.3);color:var(--error);font-size:0.8rem">
+      🗑 איפוס כל הסטטיסטיקות
+    </button>
+  </div>
+</div>
+
+<!-- About Page -->
+<div id="about-page" class="screen hidden has-top-bar">
+  <div class="page-title" style="direction:rtl">ℹ️ אודות</div>
+  <div class="page-sub" style="direction:rtl">מידע על האפליקציה</div>
+
+  <div class="about-section">
+    <h3>🎯 מה זה ISTQB CTFL?</h3>
+    <p>
+      ISTQB (International Software Testing Qualifications Board) היא הסמכה בינלאומית לבודקי תוכנה.
+      רמת Foundation Level (CTFL) היא רמת הכניסה, ומוכיחה ידע בסיסי בתורת בדיקות התוכנה.
+    </p>
+  </div>
+
+  <div class="about-section">
+    <h3>🚀 על האפליקציה</h3>
+    <p>
+      אפליקציה זו נבנתה כדי לעזור לך להתכונן לבחינת ISTQB CTFL. היא מכילה שאלות מ-4 מקורות שונים
+      ומאפשרת תרגול ממוקד, מעקב אחר שגיאות, ושמירת התקדמות בענן.
+    </p>
+    <div class="about-badge-row">
+      <span class="about-tag">Sample Exam</span>
+      <span class="about-tag">Exam B</span>
+      <span class="about-tag">Exam C</span>
+      <span class="about-tag">General</span>
+    </div>
+  </div>
+</div>
+
+<!-- Sidebar Nav -->
+<nav class="sidebar collapsed" id="global-nav">
+  <div class="sidebar-logo">✦</div>
+  <button class="nav-btn active" id="nav-home" onclick="navTo('home')">
+    <span class="nav-icon">🏠</span>בית
+  </button>
+  <button class="nav-btn" id="nav-stats" onclick="navTo('stats-page')">
+    <span class="nav-icon">📊</span>סטטיסטיקות
+  </button>
+  <button class="nav-btn" id="nav-about" onclick="navTo('about-page')">
+    <span class="nav-icon">ℹ️</span>אודות
+  </button>
+</nav>
+
+<!-- Sidebar Toggle Button -->
+<button class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="תפריט">
+  ☰
+</button>
+
 <!-- Quiz Logic -->
 <script>
 let ALL_Q = [];
 let SESSION = { questions: [], idx: 0, correct: 0, wrong: 0, skipped: 0, answers: [], mode: '' };
-let WRONG_IDS = JSON.parse(localStorage.getItem('istqb_wrong') || '[]');
-let BEST = JSON.parse(localStorage.getItem('istqb_best') || 'null');
+
+// One-time cleanup: remove any leftover localStorage from old version
+(function() {
+  const keys = ['istqb_wrong','istqb_best','istqb_answered','istqb_unique','istqb_history'];
+  keys.forEach(k => localStorage.removeItem(k));
+})();
+
+// All data lives in Firestore only — no localStorage
+let WRONG_IDS    = [];
+let BEST         = null;
+let ANSWERED_IDS = [];
+let UNIQUE_IDS   = [];
+let QUIZ_HISTORY = [];
 
 // ── Firestore bridge (set by Firebase module once ready) ──
-window._fbSaveUserData = null;
-window._currentUser    = null;
+window._fbSaveUserData  = null;
+window._fbClearUserData = null;
+window._currentUser     = null;
 
 // Called whenever WRONG_IDS or BEST change
 async function persistData() {
-  localStorage.setItem('istqb_wrong', JSON.stringify(WRONG_IDS));
-  localStorage.setItem('istqb_best',  JSON.stringify(BEST));
+  // Firestore only — no localStorage
   if (window._fbSaveUserData && window._currentUser) {
-    await window._fbSaveUserData({ wrongIds: WRONG_IDS, best: BEST });
+    window._fbSaveUserData({
+      wrongIds:    WRONG_IDS,
+      best:        BEST,
+      answeredIds: ANSWERED_IDS,
+      uniqueIds:   UNIQUE_IDS
+    }).catch(console.error);
   }
 }
 
-// Called after login — loads cloud data and merges with local
+// Called after login — load cloud data directly into memory
 async function loadCloudData(data) {
   if (!data) return;
-  if (Array.isArray(data.wrongIds)) {
-    WRONG_IDS = [...new Set([...WRONG_IDS, ...data.wrongIds])];
-    localStorage.setItem('istqb_wrong', JSON.stringify(WRONG_IDS));
-    updateWrongCount();
-  }
-  if (data.best && (!BEST || data.best > BEST)) {
-    BEST = data.best;
-    localStorage.setItem('istqb_best', JSON.stringify(BEST));
-    const el = document.getElementById('stat-best');
-    if (el) el.textContent = BEST + '%';
-  }
+  WRONG_IDS    = Array.isArray(data.wrongIds)    ? data.wrongIds    : [];
+  BEST         = data.best                        ? data.best        : null;
+  ANSWERED_IDS = Array.isArray(data.answeredIds) ? data.answeredIds : [];
+  UNIQUE_IDS   = Array.isArray(data.uniqueIds)   ? data.uniqueIds   : [];
+
+  const bestEl = document.getElementById('stat-best');
+  if (bestEl) bestEl.textContent = BEST ? BEST + '%' : '—';
+  updateWrongCount();
+  updateAnsweredStats();
 }
 
 async function loadQuestions() {
   try {
     const resp = await fetch('questions.json');
     ALL_Q = await resp.json();
-    init();
+    // Don't call init here — wait for Firebase auth state
+    window._questionsReady = true;
+    if (window._authReady) init();
   } catch(e) {
     document.getElementById('loading').innerHTML = '<span style="color:#ff6584">⚠ Could not load questions.json</span>';
   }
@@ -925,14 +1497,128 @@ function init() {
   document.getElementById('stat-total').textContent = ALL_Q.length;
   document.getElementById('count-random').textContent = ALL_Q.length + ' Questions';
   updateWrongCount();
+  updateAnsweredStats();
   document.getElementById('stat-best').textContent = BEST ? BEST + '%' : '—';
   showScreen('home');
 }
 
+window._questionsReady = false;
+window._authReady      = false;
+
 function showScreen(id) {
-  ['loading','home','config','quiz','results'].forEach(s =>
-    document.getElementById(s).classList.add('hidden'));
+  ['loading','home','config','quiz','results','stats-page','about-page'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.classList.add('hidden');
+  });
   document.getElementById(id).classList.remove('hidden');
+  // Show nav only on main pages
+  const nav = document.getElementById('global-nav');
+  const toggleBtn = document.getElementById('sidebar-toggle-btn');
+  const logoBar = document.getElementById('top-logo-bar');
+  const noNav = ['loading','config','quiz','results'];
+  const hide = noNav.includes(id);
+  if (nav) {
+    nav.classList.toggle('hidden-nav', hide);
+    if (toggleBtn) toggleBtn.style.display = hide ? 'none' : 'flex';
+  }
+  // Show logo bar only on secondary pages (not home, quiz, loading, config, results)
+  const showLogo = ['stats-page','about-page'].includes(id);
+  if (logoBar) logoBar.classList.toggle('hidden', !showLogo);
+
+  // Show guest banner only on home, when not logged in
+  const guestBanner = document.getElementById('login-wall');
+  if (guestBanner && !window._currentUser) {
+    guestBanner.classList.toggle('hidden', id !== 'home');
+  }
+}
+
+function toggleSidebar() {
+  const nav = document.getElementById('global-nav');
+  const btn = document.getElementById('sidebar-toggle-btn');
+  const isCollapsed = nav.classList.toggle('collapsed');
+  document.body.classList.toggle('sidebar-collapsed', isCollapsed);
+  if (btn) btn.textContent = isCollapsed ? '☰' : '✕';
+  if (btn) btn.style.right = isCollapsed ? '1rem' : '80px';
+}
+
+function navTo(page) {
+  showScreen(page);
+  // Update active nav button
+  ['home','stats-page','about-page'].forEach(p => {
+    const key = p === 'home' ? 'nav-home' : p === 'stats-page' ? 'nav-stats' : 'nav-about';
+    const btn = document.getElementById(key);
+    if (btn) btn.classList.toggle('active', p === page);
+  });
+  if (page === 'stats-page') updateStatsPage();
+}
+
+function updateStatsPage() {
+  const total = ALL_Q.length || 0;
+  // Basic stats
+  const el = (id) => document.getElementById(id);
+  if (el('sp-best'))        el('sp-best').textContent        = BEST ? BEST + '%' : '—';
+  if (el('sp-unique'))      el('sp-unique').textContent      = UNIQUE_IDS.length;
+  if (el('sp-answered'))    el('sp-answered').textContent    = ANSWERED_IDS.length;
+  if (el('sp-wrong-count')) el('sp-wrong-count').textContent = WRONG_IDS.length;
+  if (el('sp-total'))       el('sp-total').textContent       = total;
+  if (el('sp-quizzes'))     el('sp-quizzes').textContent     = QUIZ_HISTORY.length;
+
+  // Coverage
+  const coverage = total > 0 ? Math.round((UNIQUE_IDS.length / total) * 100) : 0;
+  if (el('sp-coverage'))     el('sp-coverage').textContent    = coverage + '%';
+  if (el('sp-coverage-bar')) el('sp-coverage-bar').style.width = coverage + '%';
+
+  // Accuracy from history
+  if (QUIZ_HISTORY.length > 0) {
+    const totalCorrect  = QUIZ_HISTORY.reduce((s, q) => s + (q.correct || 0), 0);
+    const totalAnswered = QUIZ_HISTORY.reduce((s, q) => s + (q.total  || 0), 0);
+    const acc = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
+    const wrongPct = 100 - acc;
+    if (el('sp-accuracy'))  el('sp-accuracy').textContent  = acc + '%';
+    if (el('sp-wrong-pct')) el('sp-wrong-pct').textContent = wrongPct + '%';
+  }
+
+  // History list
+  const histEl = el('sp-history');
+  if (histEl) {
+    if (QUIZ_HISTORY.length === 0) {
+      histEl.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:1rem">עדיין אין היסטוריה — השלם קוויז כדי להתחיל</div>';
+    } else {
+      const modeNames = { random: '🎲 אקראי', exam: '📋 סימולציה', wrong: '⚡ שגיאות', source: '📚 לפי מקור' };
+      histEl.innerHTML = [...QUIZ_HISTORY].reverse().map(h => {
+        const d = new Date(h.date);
+        const dateStr = d.toLocaleDateString('he-IL') + ' ' + d.toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'});
+        const pass = h.passed;
+        return `<div class="history-item">
+          <div class="hi-score ${pass ? 'pass' : 'fail'}">${h.score}%</div>
+          <div class="hi-meta">
+            <div>${modeNames[h.mode] || h.mode} · ${h.correct}/${h.total} נכון</div>
+            <div style="font-size:0.72rem;margin-top:0.2rem">${dateStr}</div>
+          </div>
+          <div class="hi-badge ${pass ? 'pass' : 'fail'}">${pass ? 'עבר' : 'נכשל'}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+async function clearAllStats() {
+  if (!confirm('האם אתה בטוח? פעולה זו תמחק את כל הסטטיסטיקות שלך!')) return;
+  WRONG_IDS    = [];
+  BEST         = null;
+  ANSWERED_IDS = [];
+  UNIQUE_IDS   = [];
+  QUIZ_HISTORY = [];
+  updateWrongCount();
+  updateAnsweredStats();
+  updateStatsPage();
+  const bestEl = document.getElementById('stat-best');
+  if (bestEl) bestEl.textContent = '—';
+  // Wipe from Firestore
+  await persistData();
+  if (window._fbClearHistory && window._currentUser) {
+    window._fbClearHistory().catch(console.error);
+  }
 }
 
 function startMode(mode) {
@@ -1013,6 +1699,13 @@ function selectOption(idx) {
   const q = SESSION.questions[SESSION.idx];
   opts.forEach(o => o.classList.add('disabled'));
 
+  // Track answered stats
+  const gIdx = ALL_Q.indexOf(q);
+  if (gIdx >= 0) {
+    ANSWERED_IDS.push(gIdx);
+    if (!UNIQUE_IDS.includes(gIdx)) UNIQUE_IDS.push(gIdx);
+  }
+
   if (idx === q.ans) {
     opts[idx].classList.add('correct');
     SESSION.correct++;
@@ -1025,9 +1718,11 @@ function selectOption(idx) {
     const globalIdx = ALL_Q.indexOf(q);
     if (globalIdx >= 0 && !WRONG_IDS.includes(globalIdx)) {
       WRONG_IDS.push(globalIdx);
-      persistData();
     }
   }
+
+  persistData();
+  updateAnsweredStats();
 
   if (q.exp) {
     const exp = document.getElementById('explanation');
@@ -1090,7 +1785,7 @@ function showResults() {
   document.getElementById('review-section').classList.add('hidden');
   updateWrongCount();
 
-  // Save quiz to history (cloud if logged in)
+  // Save quiz to local history + cloud
   const historyEntry = {
     date: new Date().toISOString(),
     mode: SESSION.mode,
@@ -1101,6 +1796,7 @@ function showResults() {
     score: pct,
     passed: pass
   };
+  QUIZ_HISTORY.push(historyEntry);
   if (window._fbSaveQuizHistory && window._currentUser) {
     window._fbSaveQuizHistory(historyEntry).catch(console.error);
   }
@@ -1194,17 +1890,24 @@ function shuffle(arr) {
   return a;
 }
 
+function updateAnsweredStats() {
+  const answeredEl = document.getElementById('stat-answered');
+  const uniqueEl   = document.getElementById('stat-unique');
+  if (answeredEl) answeredEl.textContent = ANSWERED_IDS.length;
+  if (uniqueEl)   uniqueEl.textContent   = UNIQUE_IDS.length;
+}
+
 function updateWrongCount() {
   document.getElementById('count-wrong').textContent = WRONG_IDS.length + ' mistakes';
 }
 
-loadQuestions();
+loadQuestions(); // loads questions.json; init() fires only after auth resolves
 </script>
 
 <!-- Firebase Auth + Firestore sync -->
 <script type="module">
   import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp }
+  import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, getDocs, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -1225,14 +1928,36 @@ loadQuestions();
   const provider = new GoogleAuthProvider();
 
   // ── Save WRONG_IDS + BEST to Firestore ──
-  window._fbSaveUserData = async function({ wrongIds, best }) {
+  window._fbSaveUserData = async function({ wrongIds, best, answeredIds, uniqueIds }) {
     const uid = window._currentUser?.uid;
     if (!uid) return;
     await setDoc(doc(db, "users", uid), {
       wrongIds,
-      best: best ?? null,
-      updatedAt: serverTimestamp()
+      best:        best        ?? null,
+      answeredIds: answeredIds ?? [],
+      uniqueIds:   uniqueIds   ?? [],
+      updatedAt:   serverTimestamp()
     }, { merge: true });
+  };
+
+  // ── Clear all stats from Firestore (overwrite + delete history sub-collection) ──
+  window._fbClearUserData = async function() {
+    const uid = window._currentUser?.uid;
+    if (!uid) return;
+    // Overwrite user doc with empty stats (no merge — replaces completely)
+    await setDoc(doc(db, "users", uid), {
+      name:        window._currentUser.displayName,
+      email:       window._currentUser.email,
+      wrongIds:    [],
+      best:        null,
+      answeredIds: [],
+      uniqueIds:   [],
+      updatedAt:   serverTimestamp()
+    });
+    // Delete all quizHistory documents
+    const histSnap = await getDocs(collection(db, "users", uid, "quizHistory"));
+    const deletes = histSnap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deletes);
   };
 
   // ── Save a quiz result to history sub-collection ──
@@ -1261,36 +1986,86 @@ loadQuestions();
     catch (e) { console.error(e); }
   };
 
+  // Fetch quiz history from Firestore sub-collection
+  async function fetchQuizHistory(uid) {
+    try {
+      const { getDocs, query, orderBy, limit } =
+        await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const q = query(collection(db, "users", uid, "quizHistory"), orderBy("timestamp","desc"), limit(50));
+      const snap = await getDocs(q);
+      QUIZ_HISTORY = snap.docs.map(d => ({ ...d.data(), date: d.data().date || new Date().toISOString() })).reverse();
+    } catch(e) { console.warn("Could not load quiz history", e); }
+  }
+
+  window._fbClearHistory = async function() {
+    const uid = window._currentUser?.uid;
+    if (!uid) return;
+
+    // 1. Wipe main user document fields
+    await setDoc(doc(db, "users", uid), {
+      wrongIds: [], best: null, answeredIds: [], uniqueIds: [], updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    // 2. Delete all quizHistory sub-collection documents
+    try {
+      const { getDocs } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const histSnap = await getDocs(collection(db, "users", uid, "quizHistory"));
+      const deletes = histSnap.docs.map(d => deleteDoc(d.ref));
+      await Promise.all(deletes);
+    } catch(e) { console.warn("Could not delete quizHistory", e); }
+
+    QUIZ_HISTORY = [];
+  };
+
   onAuthStateChanged(auth, async (user) => {
+    const loginWall   = document.getElementById('login-wall');
     const userInfoDiv = document.getElementById('user-info');
     const btnLogin    = document.getElementById('btn-login');
     const btnLogout   = document.getElementById('btn-logout');
 
     if (user) {
       window._currentUser = user;
+      window._authReady = true;
 
-      // Update UI
+      // Hide login wall, show app
+      if (loginWall) loginWall.classList.add('hidden');
+
+      // Update auth UI
       if (userInfoDiv) userInfoDiv.innerText = "שלום, " + user.displayName;
       if (btnLogin)  btnLogin.classList.add('hidden');
       if (btnLogout) btnLogout.classList.remove('hidden');
 
-      // Save profile
+      // Save/update profile
       await setDoc(doc(db, "users", user.uid), {
         name: user.displayName,
         email: user.email,
         lastLogin: serverTimestamp()
       }, { merge: true });
 
-      // Load & merge cloud data
+      // Load data from Firestore
       const snap = await getDoc(doc(db, "users", user.uid));
-      if (snap.exists()) {
-        await window.loadCloudData(snap.data());
-      }
+      if (snap.exists()) await window.loadCloudData(snap.data());
+      await fetchQuizHistory(user.uid);
+
+      // Init app now that we have both auth + data
+      if (window._questionsReady) window.init();
+      else window._authReady = true;
+
     } else {
       window._currentUser = null;
-      if (userInfoDiv) userInfoDiv.innerText = "אתה לא מחובר";
+      window._authReady = true;
+
+      // Guest mode: hide login wall, allow play without saving
+      if (loginWall) loginWall.classList.add('hidden');
+      WRONG_IDS = []; BEST = null; ANSWERED_IDS = []; UNIQUE_IDS = []; QUIZ_HISTORY = [];
+
+      if (userInfoDiv) userInfoDiv.innerText = "אורח";
       if (btnLogin)  btnLogin.classList.remove('hidden');
       if (btnLogout) btnLogout.classList.add('hidden');
+
+      // Init app if questions are ready
+      if (window._questionsReady) window.init();
     }
   });
 </script>
