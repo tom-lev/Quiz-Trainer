@@ -1436,6 +1436,12 @@
 let ALL_Q = [];
 let SESSION = { questions: [], idx: 0, correct: 0, wrong: 0, skipped: 0, answers: [], mode: '' };
 
+// One-time cleanup: remove any leftover localStorage from old version
+(function() {
+  const keys = ['istqb_wrong','istqb_best','istqb_answered','istqb_unique','istqb_history'];
+  keys.forEach(k => localStorage.removeItem(k));
+})();
+
 // All data lives in Firestore only — no localStorage
 let WRONG_IDS    = [];
 let BEST         = null;
@@ -1994,9 +2000,21 @@ loadQuestions(); // loads questions.json; init() fires only after auth resolves
   window._fbClearHistory = async function() {
     const uid = window._currentUser?.uid;
     if (!uid) return;
+
+    // 1. Wipe main user document fields
     await setDoc(doc(db, "users", uid), {
       wrongIds: [], best: null, answeredIds: [], uniqueIds: [], updatedAt: serverTimestamp()
     }, { merge: true });
+
+    // 2. Delete all quizHistory sub-collection documents
+    try {
+      const { getDocs } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const histSnap = await getDocs(collection(db, "users", uid, "quizHistory"));
+      const deletes = histSnap.docs.map(d => deleteDoc(d.ref));
+      await Promise.all(deletes);
+    } catch(e) { console.warn("Could not delete quizHistory", e); }
+
     QUIZ_HISTORY = [];
   };
 
