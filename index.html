@@ -1209,8 +1209,8 @@
     <div class="mode-card yellow" onclick="startMode('source')">
       <div class="mode-icon">📚</div>
       <div class="mode-title">By Source</div>
-      <div class="mode-desc">Focus on a specific exam set: Sample, Exam B, or Exam C.</div>
-      <div class="mode-count">4 Sources</div>
+      <div class="mode-desc">Focus on a specific exam set: Exam A, Exam B, Exam C, or Exam D.</div>
+      <div class="mode-count">5 Sources</div>
     </div>
   </div>
 </div>
@@ -1225,9 +1225,10 @@
       <select id="sel-source">
         <option value="all">All Sources</option>
         <option value="General">General</option>
-        <option value="Sample Exam">Sample Exam</option>
+        <option value="Exam A">Exam A</option>
         <option value="Exam B">Exam B</option>
         <option value="Exam C">Exam C</option>
+        <option value="Exam D">Exam D</option>
       </select>
     </div>
 
@@ -1404,9 +1405,10 @@
       ומאפשרת תרגול ממוקד, מעקב אחר שגיאות, ושמירת התקדמות בענן.
     </p>
     <div class="about-badge-row">
-      <span class="about-tag">Sample Exam</span>
+      <span class="about-tag">Exam A</span>
       <span class="about-tag">Exam B</span>
       <span class="about-tag">Exam C</span>
+      <span class="about-tag">Exam D</span>
       <span class="about-tag">General</span>
     </div>
   </div>
@@ -1634,7 +1636,7 @@ function startMode(mode) {
     runQuiz(shuffle(wqs));
   } else if (mode === 'source') {
     document.getElementById('config-title').textContent = '📚 By Source';
-    document.getElementById('sel-source').value = 'Sample Exam';
+    document.getElementById('sel-source').value = 'Exam A';
     showScreen('config');
   }
 }
