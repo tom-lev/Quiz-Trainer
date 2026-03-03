@@ -1133,13 +1133,14 @@
   }
 
   .nav-section-label {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.55rem;
-    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    padding: 0.5rem 0.8rem 0.2rem;
-    opacity: 0.6;
+    letter-spacing: 0.08em;
+    padding: 0.6rem 0.8rem 0.2rem;
+    opacity: 0.55;
   }
 
   .nav-theme-row {
@@ -2362,19 +2363,8 @@
 <nav class="sidebar collapsed" id="global-nav">
   <div class="sidebar-logo">✦ תרגול ISTQB</div>
 
-  <div class="nav-section-label">תפריט</div>
   <button class="nav-btn active" id="nav-home" onclick="navTo('home')">
     <span class="nav-icon">🏠</span>בית
-  </button>
-  <button class="nav-btn" id="nav-stats" onclick="navTo('stats-page')">
-    <span class="nav-icon">📊</span>סטטיסטיקות
-  </button>
-  <button class="nav-btn" id="nav-about" onclick="navTo('about-page')">
-    <span class="nav-icon">ℹ️</span>אודות
-  </button>
-
-  <button class="nav-btn" id="nav-flash" onclick="navTo('flashcards-page')">
-    <span class="nav-icon">🃏</span><span>פלאשקארדס</span>
   </button>
 
   <hr class="nav-divider">
@@ -2388,6 +2378,9 @@
   <button class="nav-btn" onclick="navStartMode('speed')">
     <span class="nav-icon">⚡</span><span id="nav-lbl-speed">מצב בזק</span>
   </button>
+  <button class="nav-btn" id="nav-flash" onclick="navTo('flashcards-page')">
+    <span class="nav-icon">🃏</span><span>כרטיסיות</span>
+  </button>
 
   <hr class="nav-divider">
   <div class="nav-section-label" id="nav-label-saved">שמור</div>
@@ -2396,6 +2389,15 @@
   </button>
   <button class="nav-btn" id="nav-saved" onclick="navTo('saved-page')">
     <span class="nav-icon">⭐</span><span id="nav-lbl-starred">מסומנות ועם הערות (<span id="nav-count-starred">0</span>)</span>
+  </button>
+
+  <hr class="nav-divider">
+  <div class="nav-section-label">כללי</div>
+  <button class="nav-btn" id="nav-stats" onclick="navTo('stats-page')">
+    <span class="nav-icon">📊</span>סטטיסטיקות
+  </button>
+  <button class="nav-btn" id="nav-about" onclick="navTo('about-page')">
+    <span class="nav-icon">ℹ️</span>אודות
   </button>
 
   <hr class="nav-divider" style="margin-top:auto">
