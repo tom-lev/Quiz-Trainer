@@ -2346,9 +2346,9 @@
 
     <!-- single "ידוע" button + nav -->
     <div class="fco-bottom">
-      <button class="btn btn-ghost fco-nav-btn" onclick="fcoGo(-1)" title="קודם">←</button>
+      <button class="btn btn-ghost fco-nav-btn" onclick="fcoGo(1)"  title="הבא">←</button>
       <button class="fco-btn fco-known-solo" id="fco-known-btn" onclick="fcoMarkKnown()">⭐ ידוע</button>
-      <button class="btn btn-ghost fco-nav-btn" onclick="fcoGo(1)"  title="הבא">→</button>
+      <button class="btn btn-ghost fco-nav-btn" onclick="fcoGo(-1)" title="קודם">→</button>
     </div>
   </div>
 
@@ -3595,9 +3595,9 @@ function fcInitSwipe(el) {
     if (_swipeX === null) return;
     const dx = e.changedTouches[0].clientX - _swipeX;
     _swipeX = null;
-    if (Math.abs(dx) < 40) return; // too short
-    // In RTL: swipe right = go to PREV, swipe left = go to NEXT
-    if (dx > 0) fcoGo(-1); else fcoGo(1);
+    if (Math.abs(dx) < 40) return;
+    // RTL: swipe right (dx>0) = go NEXT (←), swipe left (dx<0) = go PREV (→)
+    if (dx > 0) fcoGo(1); else fcoGo(-1);
   };
 }
 
