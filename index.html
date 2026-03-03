@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ISTQB CTFL · Quiz Trainer</title>
+<title>ISTQB CTFL · תרגול ISTQB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -473,16 +473,17 @@
   /* Theme toggle */
   .theme-toggle-btn {
     position: fixed;
-    bottom: 1.2rem;
-    right: 1.2rem;
+    top: 0.9rem;
+    left: 1rem;
     z-index: 150;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     border: 1px solid var(--border);
-    background: var(--card);
+    background: rgba(17,17,24,0.95);
+    backdrop-filter: blur(8px);
     color: var(--muted);
-    font-size: 1.1rem;
+    font-size: 1rem;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -493,7 +494,7 @@
   .theme-toggle-btn:hover {
     border-color: var(--accent);
     color: var(--accent);
-    transform: scale(1.1);
+    transform: scale(1.05);
   }
 
   body.light-mode .sidebar {
@@ -503,9 +504,8 @@
   body.light-mode .top-logo-bar .logo-home-btn {
     background: rgba(255,255,255,0.95);
   }
-  body.light-mode .sidebar-toggle,
   body.light-mode .theme-toggle-btn {
-    background: white;
+    background: rgba(255,255,255,0.95);
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
 
@@ -780,7 +780,13 @@
   .pass-badge.pass { background: rgba(67,233,123,0.15); color: var(--success); border: 1px solid rgba(67,233,123,0.3); }
   .pass-badge.fail { background: rgba(255,101,132,0.15); color: var(--error); border: 1px solid rgba(255,101,132,0.3); }
 
-  select option { background: #1a1a26; }
+  select option { background: #1a1a26; color: #e8e8f0; }
+  body.light-mode select option { background: #ffffff; color: #1a1a2e; }
+  body.light-mode .field select {
+    background: #ffffff;
+    color: var(--text);
+    border-color: var(--border);
+  }
 
   /* ========== LANGUAGE TOGGLE ========== */
   .lang-toggle {
@@ -1340,7 +1346,7 @@
 <!-- Top Logo Bar (shown on all pages except loading/quiz) -->
 <div class="top-logo-bar hidden" id="top-logo-bar">
   <button class="logo-home-btn" onclick="navTo('home')">
-    <span class="logo-mark">✦</span> Quiz Trainer
+    <span class="logo-mark">✦</span> תרגול ISTQB
   </button>
 </div>
 
@@ -1354,7 +1360,7 @@
 <div id="home" class="screen hidden">
   <div class="logo-area">
     <div class="badge">✦ ISTQB CTFL Prep</div>
-    <h1 class="hero-title">Quiz<br>Trainer</h1>
+    <h1 class="hero-title" id="hero-title">תרגול<br>ISTQB</h1>
     <p class="hero-sub">Foundation Level Certification Practice</p>
   </div>
 
@@ -1904,8 +1910,12 @@ function setLang(lang) {
   // ── Top logo bar ──
   const logoBtn = document.querySelector('.logo-home-btn');
   if (logoBtn) {
-    logoBtn.innerHTML = `<span class="logo-mark">✦</span> ${he ? 'מאמן קוויז' : 'Quiz Trainer'}`;
+    logoBtn.innerHTML = `<span class="logo-mark">✦</span> ${he ? 'תרגול ISTQB' : 'ISTQB Practice'}`;
   }
+
+  // Update hero title
+  const heroTitle = document.getElementById('hero-title');
+  if (heroTitle) heroTitle.innerHTML = he ? 'תרגול<br>ISTQB' : 'ISTQB<br>Practice';
 
   // ── Update question count display ──
   document.getElementById('count-random').textContent = ACTIVE_Q.length + (he ? ' שאלות' : ' Questions');
