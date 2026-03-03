@@ -1,0 +1,1424 @@
+// ========== Main App JS ==========
+
+// ── Exam source links (Hebrew) ──
+const EXAM_LINKS = {
+  "בחינה לדוגמא גרסה א'": {
+    questions: "https://drive.google.com/file/d/1ITyEyYBcyt83lotyH11FmKZxeGcZSdSG/view?usp=sharing",
+    answers:   "https://drive.google.com/file/d/1Ggu4pRLSpIKk1KUdZMkjlc5ZHbmjhe3F/view?usp=sharing"
+  },
+  "בחינה לדוגמא גרסה ב'": {
+    questions: "https://drive.google.com/file/d/1hF8k8w0KjT3Mt4y9fUalC2bmN8OV56jc/view?usp=sharing",
+    answers:   "https://drive.google.com/file/d/1HSSRsHzaL5IaeS080pNZndKJqgz-08HJ/view?usp=sharing"
+  },
+  "בחינה לדוגמא גרסה ג'": {
+    questions: "https://drive.google.com/file/d/1n-L4LTkRl7ddR6KSU11MjH5S_nTuZLH9/view?usp=sharing",
+    answers:   "https://drive.google.com/file/d/1xfUXdXLNc6kXsyBTrBuhvfMFxVGELtZK/view?usp=sharing"
+  },
+  "בחינה לדוגמא גרסה ד'": {
+    questions: "https://drive.google.com/file/d/1y_b24Eh06dfC9Vwg3MnSC0n1x6f5Rnef/view?usp=sharing",
+    answers:   "https://drive.google.com/file/d/1EFur0G3QJM1kc0AXh6sOcWA3PrcAtwNN/view?usp=sharing"
+  }
+};
+
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light-mode');
+  const sw = document.getElementById('theme-switch-btn');
+  if (sw) sw.classList.toggle('on', isLight);
+  localStorage.setItem('istqb_theme', isLight ? 'light' : 'dark');
+}
+
+// Load saved theme — default is light mode
+(function() {
+  const saved = localStorage.getItem('istqb_theme');
+  const isDark = saved === 'dark';
+  if (!isDark) {
+    document.body.classList.add('light-mode');
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const sw = document.getElementById('theme-switch-btn');
+    if (sw) sw.classList.toggle('on', !isDark);
+  });
+})();
+
+// Navigate from sidebar: go home first then start mode
+function navStartMode(mode) {
+  SESSION.mode = mode;
+  // Close sidebar on mobile
+  const nav = document.getElementById('global-nav');
+  if (nav && window.innerWidth < 700) {
+    nav.classList.add('collapsed');
+    document.body.classList.add('sidebar-collapsed');
+    const btn = document.getElementById('sidebar-toggle-btn');
+    if (btn) { btn.textContent = '☰'; btn.style.right = '1rem'; }
+  }
+  startMode(mode);
+}
+let ALL_Q_HE = [];
+let ACTIVE_Q = [];  // the pool currently in use (en or he)
+let ALL_GLOSSARY = [];  // 324 glossary terms
+let FC_POOL = [];        // current flashcard pool (filtered/shuffled — set in FLASHCARDS section)
+let FC_KNOWN = new Set();
+let FC_DIRECTION = 'term';
+let FC_VIEW = 'grid';
+let FCO_IDX = 0;
+let CURRENT_LANG = 'he';
+let SESSION = { questions: [], idx: 0, correct: 0, wrong: 0, skipped: 0, answers: [], mode: '' };
+
+// One-time cleanup: remove any leftover localStorage from old version
+(function() {
+  const keys = ['istqb_wrong','istqb_best','istqb_answered','istqb_unique','istqb_history'];
+  keys.forEach(k => localStorage.removeItem(k));
+})();
+
+// All data lives in Firestore only — no localStorage
+let WRONG_IDS    = [];
+let BEST         = null;
+let ANSWERED_IDS = [];
+let UNIQUE_IDS   = [];
+let QUIZ_HISTORY = [];
+let STARRED_IDS  = [];   // ⭐ starred question indices
+let NOTES        = {};   // { questionIndex: "note text" }
+let SPEED_MODE   = false;
+let SPEED_TIMER  = null;
+
+// ── Firestore bridge (set by Firebase module once ready) ──
+window._fbSaveUserData  = null;
+window._fbClearUserData = null;
+window._currentUser     = null;
+
+// Called whenever data changes
+async function persistData() {
+  if (window._fbSaveUserData && window._currentUser) {
+    window._fbSaveUserData({
+      wrongIds:    WRONG_IDS,
+      best:        BEST,
+      answeredIds: ANSWERED_IDS,
+      uniqueIds:   UNIQUE_IDS,
+      starredIds:  STARRED_IDS,
+      notes:       NOTES
+    }).catch(console.error);
+  }
+}
+
+// Called after login — load cloud data directly into memory
+async function loadCloudData(data) {
+  if (!data) return;
+  WRONG_IDS    = Array.isArray(data.wrongIds)    ? data.wrongIds    : [];
+  BEST         = data.best                        ? data.best        : null;
+  ANSWERED_IDS = Array.isArray(data.answeredIds) ? data.answeredIds : [];
+  UNIQUE_IDS   = Array.isArray(data.uniqueIds)   ? data.uniqueIds   : [];
+  STARRED_IDS  = Array.isArray(data.starredIds)  ? data.starredIds  : [];
+  NOTES        = (data.notes && typeof data.notes === 'object') ? data.notes : {};
+
+  const bestEl = document.getElementById('stat-best');
+  if (bestEl) bestEl.textContent = BEST ? BEST + '%' : '—';
+  updateWrongCount();
+  updateAnsweredStats();
+  updateStarredCount();
+}
+
+async function loadQuestions() {
+  try {
+    const [respEn, respHe, respGlossary] = await Promise.all([
+      fetch('questions.json'),
+      fetch('questions_he.json'),
+      fetch('glossary_he.json').catch(() => null)
+    ]);
+    ALL_Q    = await respEn.json();
+    ALL_Q_HE = await respHe.json();
+    ACTIVE_Q = ALL_Q;
+    if (respGlossary) {
+      try { ALL_GLOSSARY = await respGlossary.json(); } catch(e) {}
+    }
+
+    window._questionsReady = true;
+    if (window._authReady) init();
+  } catch(e) {
+    // Try loading English only if Hebrew fails
+    try {
+      const resp = await fetch('questions.json');
+      ALL_Q    = await resp.json();
+      ALL_Q_HE = [];
+      ACTIVE_Q = ALL_Q;
+      window._questionsReady = true;
+      if (window._authReady) init();
+    } catch(e2) {
+      document.getElementById('loading').innerHTML = '<span style="color:#ff6584">⚠ Could not load questions.json</span>';
+    }
+  }
+}
+
+function setLang(lang) {
+  CURRENT_LANG = lang;
+  ACTIVE_Q = lang === 'he' ? ALL_Q_HE : ALL_Q;
+  const he = lang === 'he';
+
+  // Toggle body class for RTL styling
+  document.body.classList.toggle('lang-he', he);
+
+  // Update lang buttons
+  document.getElementById('lang-en-btn').classList.toggle('active', !he);
+  document.getElementById('lang-he-btn').classList.toggle('active', he);
+
+  // ── Hero area ──
+  const heroBadge = document.querySelector('#home .badge');
+  if (heroBadge) heroBadge.textContent = he ? '✦ הכנה ל-ISTQB CTFL' : '✦ ISTQB CTFL Prep';
+
+  const heroSub = document.querySelector('#home .hero-sub');
+  if (heroSub) heroSub.textContent = he ? 'הסמכת בדיקות רמה בסיסית' : 'Foundation Level Certification Practice';
+
+  // ── Stats strip labels ──
+  const statBestLbl = document.querySelector('#home .stats-strip .stat-item:nth-child(1) .stat-label');
+  const statUniqLbl = document.querySelector('#home .stats-strip .stat-item:nth-child(2) .stat-label');
+  const statAnsLbl  = document.querySelector('#home .stats-strip .stat-item:nth-child(3) .stat-label');
+  if (statBestLbl) statBestLbl.textContent = he ? 'שיא' : 'Best Score';
+  if (statUniqLbl) statUniqLbl.textContent = he ? 'שאלות ייחודיות' : 'Unique Qs';
+  if (statAnsLbl)  statAnsLbl.textContent  = he ? 'תשובות' : 'Answered';
+
+  // ── Mode cards ──
+  const mc = (id) => document.getElementById(id);
+  if (mc('mc-title-random')) {
+    mc('mc-title-random').textContent = he ? 'חידון אקראי' : 'Random Quiz';
+    mc('mc-desc-random').textContent  = he ? 'שאלות אקראיות מכל המאגרים. הגדר כמות, מקור ורמת קושי.' : 'Random questions from all sets. Configure count, source & difficulty.';
+    mc('mc-title-exam').textContent   = he ? 'סימולציית בחינה' : 'Full Exam Simulation';
+    mc('mc-desc-exam').textContent    = he ? '40 שאלות המדמות תנאי ISTQB אמיתיים.' : '40-question exam simulating real ISTQB conditions.';
+    mc('mc-count-exam').textContent   = he ? '40 שאלות' : '40 Questions';
+    mc('mc-title-speed').textContent  = he ? 'מצב בזק' : 'Speed Mode';
+    mc('mc-desc-speed').textContent   = he ? '30 שניות לשאלה — טעות אוטומטית אם לא עונים בזמן.' : '30 seconds per question — auto-wrong if time runs out.';
+    mc('mc-count-speed').textContent  = he ? '30 שנ׳ לשאלה' : '30s / question';
+  }
+
+  // ── Sidebar labels ──
+  const navLabelModes  = document.getElementById('nav-label-modes');
+  const navLabelSaved  = document.getElementById('nav-label-saved');
+  const navLblRandom   = document.getElementById('nav-lbl-random');
+  const navLblExam     = document.getElementById('nav-lbl-exam');
+  const navLblSpeed    = document.getElementById('nav-lbl-speed');
+  if (navLabelModes) navLabelModes.textContent = he ? 'חידונים' : 'Modes';
+  if (navLabelSaved) navLabelSaved.textContent = he ? 'שמור' : 'Saved';
+  if (navLblRandom) navLblRandom.childNodes[0].textContent = he ? 'חידון אקראי' : 'Random Quiz';
+  if (navLblExam)   navLblExam.childNodes[0].textContent   = he ? 'סימולציית בחינה' : 'Exam Sim';
+  if (navLblSpeed)  navLblSpeed.childNodes[0].textContent  = he ? 'מצב בזק' : 'Speed Mode';
+
+  const navThemeLabel = document.getElementById('nav-theme-label');
+  if (navThemeLabel) navThemeLabel.textContent = he ? 'מצב לילה' : 'Dark mode';
+
+  // ── Auth buttons ──
+  const btnLogin  = document.getElementById('btn-login');
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogin) {
+    const svgEl = btnLogin.querySelector('svg');
+    btnLogin.innerHTML = '';
+    if (svgEl) btnLogin.appendChild(svgEl);
+    btnLogin.appendChild(document.createTextNode(he ? ' התחבר עם Google' : ' Sign in with Google'));
+  }
+  if (btnLogout) btnLogout.textContent = he ? 'התנתק' : 'Sign Out';
+
+  // ── Swap source dropdowns ──
+  const selEn = document.getElementById('sel-source');
+  const selHe = document.getElementById('sel-source-he');
+  if (selEn && selHe) {
+    selEn.classList.toggle('hidden', he);
+    selHe.classList.toggle('hidden', !he);
+  }
+
+  // ── Config labels ──
+  const lbl = document.getElementById('lbl-source-field');
+  const lblCount = document.getElementById('lbl-count-label');
+  const lblOrder = document.getElementById('lbl-order-field');
+  if (lbl)      lbl.textContent      = he ? 'מקור' : 'Source';
+  if (lblCount) lblCount.textContent = he ? 'מספר שאלות' : 'Number of Questions';
+  if (lblOrder) lblOrder.textContent = he ? 'סדר' : 'Order';
+
+  // ── sel-order options ──
+  const selOrder = document.getElementById('sel-order');
+  if (selOrder) {
+    selOrder.options[0].text = he ? 'אקראי' : 'Shuffled';
+    selOrder.options[1].text = he ? 'רציף' : 'Sequential';
+  }
+
+  // ── Config buttons ──
+  const btnStart = document.getElementById('btn-start-quiz');
+  const btnBack  = document.getElementById('btn-config-back');
+  if (btnStart) btnStart.textContent = he ? '← התחל חידון' : 'Start Quiz →';
+  if (btnBack)  btnBack.textContent  = he ? '→ חזרה' : '← Back';
+
+  // ── Quiz buttons ──
+  const btnSkip = document.getElementById('btn-skip');
+  const btnNext = document.getElementById('btn-next');
+  if (btnSkip) btnSkip.textContent = he ? 'דלג ←' : 'Skip →';
+  if (btnNext) btnNext.textContent = he ? 'הבא ←' : 'Next →';
+
+  // ── Results page ──
+  const scoreLabel = document.querySelector('#results .score-label');
+  if (scoreLabel) scoreLabel.textContent = he ? 'ציון' : 'Score';
+
+  const rsCorrectLbl = document.querySelector('#rs-correct + .rstat-label') ||
+    document.querySelector('#results .rstat:nth-child(1) .rstat-label');
+  const rsWrongLbl   = document.querySelector('#results .rstat:nth-child(2) .rstat-label');
+  const rsSkippedLbl = document.querySelector('#results .rstat:nth-child(3) .rstat-label');
+  if (rsCorrectLbl) rsCorrectLbl.textContent = he ? 'נכון' : 'Correct';
+  if (rsWrongLbl)   rsWrongLbl.textContent   = he ? 'שגוי' : 'Wrong';
+  if (rsSkippedLbl) rsSkippedLbl.textContent = he ? 'דולג' : 'Skipped';
+
+  const btnHome        = document.querySelector('#results .btn-row .btn-primary');
+  const btnReview      = document.querySelector('#results .btn-row .btn-ghost:nth-child(2)');
+  const btnRetryWrong  = document.getElementById('btn-retry-wrong');
+  if (btnHome)       btnHome.textContent       = he ? '→ בית' : '← Home';
+  if (btnReview)     btnReview.textContent     = he ? 'סקירת תשובות' : 'Review Answers';
+  if (btnRetryWrong) btnRetryWrong.textContent = he ? 'תרגל שגיאות' : 'Retry Wrong';
+
+  const reviewHeading = document.querySelector('.review-heading');
+  if (reviewHeading) reviewHeading.textContent = he ? '📝 סקירת תשובות' : '📝 Answer Review';
+
+  // ── Guest banner ──
+  const loginBannerTitle = document.querySelector('#login-wall .login-sub strong');
+  const loginBannerSub   = document.querySelector('#login-wall .login-sub');
+  if (loginBannerTitle) loginBannerTitle.textContent = he ? '⚠️ מצב אורח' : '⚠️ Guest Mode';
+  if (loginBannerSub) {
+    // keep the strong tag, replace text node
+    const strong = loginBannerSub.querySelector('strong');
+    loginBannerSub.innerHTML = '';
+    if (strong) loginBannerSub.appendChild(strong);
+    loginBannerSub.appendChild(document.createTextNode(
+      he ? ' ההתקדמות לא נשמרת — התחבר כדי לשמור בין מכשירים'
+         : ' Progress is not saved — sign in to sync across devices'
+    ));
+  }
+
+  // ── Top logo bar ──
+  const logoBtn = document.querySelector('.logo-home-btn');
+  if (logoBtn) {
+    logoBtn.innerHTML = `<span class="logo-mark">✦</span> ${he ? 'תרגול ISTQB' : 'ISTQB Practice'}`;
+  }
+
+  // Update hero title
+  const heroTitle = document.getElementById('hero-title');
+  if (heroTitle) heroTitle.innerHTML = he ? 'תרגול<br>ISTQB' : 'ISTQB<br>Practice';
+
+  // ── Update question count display ──
+  document.getElementById('count-random').textContent = ACTIVE_Q.length + (he ? ' שאלות' : ' Questions');
+  updateWrongCount();
+  updateAnsweredStats();
+  updateStarredCount();
+
+  // ── K-level selector labels ──
+  const selKlevel = document.getElementById('sel-klevel');
+  if (selKlevel) {
+    selKlevel.options[0].text = he ? 'כל הרמות' : 'All Levels';
+    selKlevel.options[1].text = he ? 'K1 — זכירה' : 'K1 — Knowledge';
+    selKlevel.options[2].text = he ? 'K2 — הבנה' : 'K2 — Comprehension';
+    selKlevel.options[3].text = he ? 'K3 — יישום' : 'K3 — Application';
+  }
+  const lblKlevel = document.getElementById('lbl-klevel-field');
+  if (lblKlevel) lblKlevel.textContent = he ? 'רמת קושי' : 'Difficulty';
+}
+
+function init() {
+  document.getElementById('stat-total').textContent = ALL_Q.length;
+  document.getElementById('count-random').textContent = ALL_Q.length + ' Questions';
+  updateWrongCount();
+  updateAnsweredStats();
+  updateStarredCount();
+  document.getElementById('stat-best').textContent = BEST ? BEST + '%' : '—';
+  setLang('he');
+  showScreen('home');
+}
+
+window._questionsReady = false;
+window._authReady      = false;
+
+function showScreen(id) {
+  ['loading','home','config','quiz','results','stats-page','about-page','saved-page','flashcards-page'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+  const nav = document.getElementById('global-nav');
+  const toggleBtn = document.getElementById('sidebar-toggle-btn');
+  const logoBar = document.getElementById('top-logo-bar');
+  const noNav = ['loading','config','quiz','results'];
+  const hide = noNav.includes(id);
+  if (nav) {
+    nav.classList.toggle('hidden-nav', hide);
+    if (toggleBtn) toggleBtn.style.display = hide ? 'none' : 'flex';
+  }
+  const showLogo = ['stats-page','about-page','saved-page','flashcards-page'].includes(id);
+  if (logoBar) logoBar.classList.toggle('hidden', !showLogo);
+  const guestBanner = document.getElementById('login-wall');
+  if (guestBanner && !window._currentUser) {
+    guestBanner.classList.toggle('hidden', id !== 'home');
+  }
+}
+
+function toggleSidebar() {
+  const nav = document.getElementById('global-nav');
+  const btn = document.getElementById('sidebar-toggle-btn');
+  const isCollapsed = nav.classList.toggle('collapsed');
+  document.body.classList.toggle('sidebar-collapsed', isCollapsed);
+  if (btn) btn.textContent = isCollapsed ? '☰' : '✕';
+  if (btn) btn.style.right = isCollapsed ? '1rem' : '80px';
+}
+
+function navTo(page) {
+  showScreen(page);
+  ['home','stats-page','about-page','saved-page','flashcards-page'].forEach(p => {
+    const key = p === 'home' ? 'nav-home'
+              : p === 'stats-page' ? 'nav-stats'
+              : p === 'about-page' ? 'nav-about'
+              : p === 'saved-page' ? 'nav-saved'
+              : 'nav-flash';
+    const btn = document.getElementById(key);
+    if (btn) btn.classList.toggle('active', p === page);
+  });
+  if (page === 'stats-page') updateStatsPage();
+  if (page === 'saved-page') updateSavedPage();
+  if (page === 'flashcards-page') initFlashcards();
+}
+
+function updateStatsPage() {
+  const total = ACTIVE_Q.length || 0;
+  // Basic stats
+  const el = (id) => document.getElementById(id);
+  if (el('sp-best'))        el('sp-best').textContent        = BEST ? BEST + '%' : '—';
+  if (el('sp-unique'))      el('sp-unique').textContent      = UNIQUE_IDS.length;
+  if (el('sp-answered'))    el('sp-answered').textContent    = ANSWERED_IDS.length;
+  if (el('sp-wrong-count')) el('sp-wrong-count').textContent = WRONG_IDS.length;
+  if (el('sp-total'))       el('sp-total').textContent       = total;
+  if (el('sp-quizzes'))     el('sp-quizzes').textContent     = QUIZ_HISTORY.length;
+
+  // Coverage
+  const coverage = total > 0 ? Math.round((UNIQUE_IDS.length / total) * 100) : 0;
+  if (el('sp-coverage'))     el('sp-coverage').textContent    = coverage + '%';
+  if (el('sp-coverage-bar')) el('sp-coverage-bar').style.width = coverage + '%';
+
+  // Accuracy from history
+  if (QUIZ_HISTORY.length > 0) {
+    const totalCorrect  = QUIZ_HISTORY.reduce((s, q) => s + (q.correct || 0), 0);
+    const totalAnswered = QUIZ_HISTORY.reduce((s, q) => s + (q.total  || 0), 0);
+    const acc = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
+    const wrongPct = 100 - acc;
+    if (el('sp-accuracy'))  el('sp-accuracy').textContent  = acc + '%';
+    if (el('sp-wrong-pct')) el('sp-wrong-pct').textContent = wrongPct + '%';
+  }
+
+  // History list
+  const histEl = el('sp-history');
+  if (histEl) {
+    if (QUIZ_HISTORY.length === 0) {
+      histEl.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:1rem">עדיין אין היסטוריה — השלם חידון כדי להתחיל</div>';
+    } else {
+      const modeNames = { random: '🎲 אקראי', exam: '📋 סימולציה', wrong: '⚡ שגיאות', source: '📚 לפי מקור' };
+      histEl.innerHTML = [...QUIZ_HISTORY].reverse().map(h => {
+        const d = new Date(h.date);
+        const dateStr = d.toLocaleDateString('he-IL') + ' ' + d.toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'});
+        const pass = h.passed;
+        return `<div class="history-item">
+          <div class="hi-score ${pass ? 'pass' : 'fail'}">${h.score}%</div>
+          <div class="hi-meta">
+            <div>${modeNames[h.mode] || h.mode} · ${h.correct}/${h.total} נכון</div>
+            <div style="font-size:0.72rem;margin-top:0.2rem">${dateStr}</div>
+          </div>
+          <div class="hi-badge ${pass ? 'pass' : 'fail'}">${pass ? 'עבר' : 'נכשל'}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+async function clearAllStats() {
+  if (!confirm('האם אתה בטוח? פעולה זו תמחק את כל הסטטיסטיקות שלך!')) return;
+  WRONG_IDS    = [];
+  BEST         = null;
+  ANSWERED_IDS = [];
+  UNIQUE_IDS   = [];
+  QUIZ_HISTORY = [];
+  STARRED_IDS  = [];
+  NOTES        = {};
+  updateWrongCount();
+  updateAnsweredStats();
+  updateStarredCount();
+  updateStatsPage();
+  const bestEl = document.getElementById('stat-best');
+  if (bestEl) bestEl.textContent = '—';
+  await persistData();
+  if (window._fbClearHistory && window._currentUser) {
+    window._fbClearHistory().catch(console.error);
+  }
+}
+
+function startMode(mode) {
+  SESSION.mode = mode;
+  const he = CURRENT_LANG === 'he';
+  SPEED_MODE = (mode === 'speed');
+
+  if (mode === 'random' || mode === 'speed') {
+    document.getElementById('config-title').textContent = mode === 'speed'
+      ? (he ? '⚡🔥 מצב בזק' : '⚡🔥 Speed Mode')
+      : (he ? '🎲 חידון אקראי' : '🎲 Random Quiz');
+    showScreen('config');
+  } else if (mode === 'exam') {
+    runQuiz(shuffle(ACTIVE_Q).slice(0, 40));
+  } else if (mode === 'wrong') {
+    const wqs = ACTIVE_Q.filter((q, i) => WRONG_IDS.includes(i));
+    if (wqs.length === 0) {
+      alert(he ? 'אין שאלות שגויות עדיין!' : 'No wrong answers recorded yet!');
+      return;
+    }
+    runQuiz(shuffle(wqs));
+  } else if (mode === 'starred') {
+    const notedIdxs = Object.keys(NOTES).map(Number).filter(n => !isNaN(n));
+    const combinedIdxs = [...new Set([...STARRED_IDS, ...notedIdxs])];
+    const sqs = ACTIVE_Q.filter((q, i) => combinedIdxs.includes(i));
+    if (sqs.length === 0) {
+      alert(he ? 'אין שאלות מסומנות או עם הערות עדיין!' : 'No starred or noted questions yet!');
+      return;
+    }
+    runQuiz(shuffle(sqs));
+  }
+}
+
+function beginQuiz() {
+  const he = CURRENT_LANG === 'he';
+  const src = he
+    ? document.getElementById('sel-source-he').value
+    : document.getElementById('sel-source').value;
+  const klevel = document.getElementById('sel-klevel').value;
+  const count = parseInt(document.getElementById('rng-count').value);
+  const order = document.getElementById('sel-order').value;
+  let pool = src === 'all' ? ACTIVE_Q : ACTIVE_Q.filter(q => q.src === src);
+  if (klevel !== 'all') pool = pool.filter(q => (q.k_level || q.k) === klevel);
+  if (pool.length === 0) {
+    alert(he ? 'אין שאלות התואמות את הסינון שנבחר.' : 'No questions match the selected filters.');
+    return;
+  }
+  if (order === 'shuffle') pool = shuffle(pool);
+  runQuiz(pool.slice(0, count));
+}
+
+function runQuiz(questions) {
+  SESSION = { questions, idx: 0, correct: 0, wrong: 0, skipped: 0, answers: [], mode: SESSION.mode };
+  clearSpeedTimer();
+  showScreen('quiz');
+  // Show/hide speed timer bar
+  document.getElementById('speed-timer-wrap').classList.toggle('hidden', !SPEED_MODE);
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = SESSION.questions[SESSION.idx];
+  const total = SESSION.questions.length;
+
+  document.getElementById('progress-fill').style.width = (SESSION.idx / total * 100) + '%';
+  document.getElementById('prog-text').textContent = `${SESSION.idx + 1} / ${total}`;
+  document.getElementById('score-live').textContent = `✓ ${SESSION.correct} · ✗ ${SESSION.wrong}`;
+
+  const meta = document.getElementById('q-meta');
+  meta.innerHTML = `<span class="tag tag-src">${q.src}</span>`;
+  if (q.k) meta.innerHTML += `<span class="tag tag-k">${q.k}</span>`;
+  if (q.k_level) meta.innerHTML += `<span class="tag tag-k">${q.k_level}</span>`;
+  if (q.lo) meta.innerHTML += `<span class="tag tag-lo">${q.lo}</span>`;
+  const examLinks = EXAM_LINKS[q.src];
+  if (examLinks) {
+    meta.innerHTML += `<a class="tag tag-link" href="${examLinks.questions}" target="_blank" rel="noopener">📄 שאלות</a>`;
+    meta.innerHTML += `<a class="tag tag-link answers" href="${examLinks.answers}" target="_blank" rel="noopener">✅ תשובות</a>`;
+  }
+
+  document.getElementById('q-text').innerHTML = formatQuestion(q.q);
+
+  // Star button state
+  const gIdx = ACTIVE_Q.indexOf(q);
+  const isStarred = gIdx >= 0 && STARRED_IDS.includes(gIdx);
+  const starBtn = document.getElementById('btn-star');
+  starBtn.textContent = isStarred ? '⭐' : '☆';
+  starBtn.style.color = isStarred ? '#ffd166' : 'var(--muted)';
+
+  // Note — always visible, load existing value
+  const noteInput = document.getElementById('note-input');
+  const noteKey = String(gIdx >= 0 ? gIdx : 'tmp');
+  noteInput.value = NOTES[noteKey] || '';
+
+  const opts = document.getElementById('options');
+  opts.innerHTML = '';
+  const _heLetters = ['א','ב','ג','ד','ה','ו'];
+  const _enLetters = ['A','B','C','D','E','F'];
+  const _letters = CURRENT_LANG === 'he' ? _heLetters : _enLetters;
+  _enLetters.slice(0, q.opts.length).forEach((letter, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.innerHTML = `<span class="opt-letter">${_letters[i]}</span><span class="opt-text">${q.opts[i]}</span>`;
+    btn.onclick = () => selectOption(i);
+    opts.appendChild(btn);
+  });
+
+  const exp = document.getElementById('explanation');
+  exp.classList.add('hidden');
+  exp.innerHTML = '';
+
+  document.getElementById('btn-skip').classList.remove('hidden');
+  document.getElementById('btn-next').classList.add('hidden');
+
+  const card = document.getElementById('q-card');
+  card.style.animation = 'none';
+  card.offsetHeight;
+  card.style.animation = '';
+
+  // Start speed timer if in speed mode
+  if (SPEED_MODE) startSpeedTimer();
+}
+
+function selectOption(idx) {
+  const opts = document.querySelectorAll('.option');
+  if (opts[0].classList.contains('disabled')) return;
+
+  clearSpeedTimer();
+
+  const q = SESSION.questions[SESSION.idx];
+  opts.forEach(o => o.classList.add('disabled'));
+
+  // Track answered stats
+  const gIdx = ACTIVE_Q.indexOf(q);
+  if (gIdx >= 0) {
+    ANSWERED_IDS.push(gIdx);
+    if (!UNIQUE_IDS.includes(gIdx)) UNIQUE_IDS.push(gIdx);
+  }
+
+  if (idx === q.ans) {
+    opts[idx].classList.add('correct');
+    SESSION.correct++;
+    SESSION.answers.push({ q, chosen: idx, correct: true });
+  } else {
+    opts[idx].classList.add('wrong');
+    opts[q.ans].classList.add('correct');
+    SESSION.wrong++;
+    SESSION.answers.push({ q, chosen: idx, correct: false });
+    const globalIdx = ACTIVE_Q.indexOf(q);
+    if (globalIdx >= 0 && !WRONG_IDS.includes(globalIdx)) {
+      WRONG_IDS.push(globalIdx);
+    }
+  }
+
+  persistData();
+  updateAnsweredStats();
+
+  if (q.exp) {
+    const exp = document.getElementById('explanation');
+    const _expHe = CURRENT_LANG === 'he';
+    exp.innerHTML = `<strong>${_expHe ? 'הסבר' : 'Explanation'}</strong>${formatExplanation(q.exp)}`;
+    exp.classList.remove('hidden');
+  }
+
+  document.getElementById('btn-skip').classList.add('hidden');
+  document.getElementById('btn-next').classList.remove('hidden');
+  document.getElementById('score-live').textContent = `✓ ${SESSION.correct} · ✗ ${SESSION.wrong}`;
+}
+
+function skipQuestion() {
+  clearSpeedTimer();
+  SESSION.skipped++;
+  SESSION.answers.push({ q: SESSION.questions[SESSION.idx], chosen: -1, correct: false, skipped: true });
+  advanceOrFinish();
+}
+
+function nextQuestion() { advanceOrFinish(); }
+
+function advanceOrFinish() {
+  SESSION.idx++;
+  if (SESSION.idx >= SESSION.questions.length) showResults();
+  else renderQuestion();
+}
+
+function confirmQuit() {
+  const _quitHe = CURRENT_LANG === 'he';
+  if (confirm(_quitHe ? 'לצאת מהחידון?' : 'Quit this quiz?')) showScreen('home');
+}
+
+function showResults() {
+  showScreen('results');
+  const total = SESSION.questions.length;
+  const pct = Math.round((SESSION.correct / total) * 100);
+  const pass = pct >= 65;
+  const he = CURRENT_LANG === 'he';
+
+  if (!BEST || pct > BEST) {
+    BEST = pct;
+    persistData();
+    document.getElementById('stat-best').textContent = BEST + '%';
+  }
+
+  document.getElementById('res-pct').textContent = pct + '%';
+  document.getElementById('res-pct').style.color = pass ? 'var(--success)' : 'var(--error)';
+  document.getElementById('score-circle').style.background =
+    `conic-gradient(${pass ? 'var(--success)' : 'var(--error)'} ${pct * 3.6}deg, var(--border) 0)`;
+  document.getElementById('res-title').textContent = pass
+    ? (he ? '🎉 כל הכבוד!' : '🎉 Great Work!')
+    : (he ? '📖 המשך ללמוד' : '📖 Keep Studying');
+  document.getElementById('res-sub').textContent = he
+    ? `ענית נכון על ${SESSION.correct} מתוך ${total} שאלות.`
+    : `You scored ${SESSION.correct} out of ${total} questions.`;
+
+  const passBadge = document.getElementById('res-pass');
+  passBadge.textContent = pass
+    ? (he ? '✓ עבר (≥65%)' : '✓ PASS (≥65%)')
+    : (he ? '✗ נכשל (<65%)' : '✗ FAIL (<65%)');
+  passBadge.className = 'pass-badge ' + (pass ? 'pass' : 'fail');
+
+  document.getElementById('rs-correct').textContent = SESSION.correct;
+  document.getElementById('rs-wrong').textContent = SESSION.wrong;
+  document.getElementById('rs-skipped').textContent = SESSION.skipped;
+  document.getElementById('btn-retry-wrong').style.display = SESSION.wrong > 0 ? '' : 'none';
+
+  // Update result labels for language
+  const rstatLabels = document.querySelectorAll('#results .rstat-label');
+  if (rstatLabels.length >= 3) {
+    rstatLabels[0].textContent = he ? 'נכון' : 'Correct';
+    rstatLabels[1].textContent = he ? 'שגוי' : 'Wrong';
+    rstatLabels[2].textContent = he ? 'דולג' : 'Skipped';
+  }
+  const scoreLabel = document.querySelector('#results .score-label');
+  if (scoreLabel) scoreLabel.textContent = he ? 'ציון' : 'Score';
+
+  buildReview();
+  document.getElementById('review-section').classList.add('hidden');
+  updateWrongCount();
+
+  // Save quiz to local history + cloud
+  const historyEntry = {
+    date: new Date().toISOString(),
+    mode: SESSION.mode,
+    total: total,
+    correct: SESSION.correct,
+    wrong: SESSION.wrong,
+    skipped: SESSION.skipped,
+    score: pct,
+    passed: pass
+  };
+  QUIZ_HISTORY.push(historyEntry);
+  if (window._fbSaveQuizHistory && window._currentUser) {
+    window._fbSaveQuizHistory(historyEntry).catch(console.error);
+  }
+}
+
+function toggleReview() {
+  document.getElementById('review-section').classList.toggle('hidden');
+}
+
+function buildReview() {
+  const list = document.getElementById('review-list');
+  list.innerHTML = '';
+  const letters = CURRENT_LANG === 'he' ? ['א','ב','ג','ד','ה','ו'] : ['A','B','C','D','E','F'];
+  const he = CURRENT_LANG === 'he';
+  SESSION.answers.forEach((a, i) => {
+    const div = document.createElement('div');
+    div.className = 'review-item ' + (a.correct ? 'correct-item' : 'wrong-item');
+    let answerLine = '';
+    if (a.skipped) {
+      answerLine = `<span style="color:var(--warning)">⊘ ${he ? 'דולג' : 'Skipped'}</span>`;
+    } else {
+      answerLine = `<span class="${a.correct ? 'review-correct' : 'review-wrong'}">
+        ${a.correct ? '✓' : '✗'} ${he ? 'תשובתך' : 'Your answer'}: ${letters[a.chosen] || '?'}) ${a.q.opts[a.chosen] || ''}
+      </span>`;
+      if (!a.correct) {
+        answerLine += ` &nbsp; <span class="review-correct">✓ ${he ? 'נכון' : 'Correct'}: ${letters[a.q.ans]}) ${a.q.opts[a.q.ans]}</span>`;
+      }
+    }
+    div.innerHTML = `
+      <div class="review-q"><strong style="color:var(--muted);font-size:0.75rem;font-family:'Space Mono',monospace">${he ? 'ש' : 'Q'}${i+1}</strong> &nbsp; ${formatQuestion(a.q.q)}</div>
+      <div class="review-answers">${answerLine}</div>
+      ${a.q.exp && !a.correct ? `<div style="margin-top:0.6rem;font-size:0.8rem;color:var(--muted);line-height:1.55">${formatExplanation(a.q.exp)}</div>` : ''}
+    `;
+    list.appendChild(div);
+  });
+}
+
+function retryWrong() {
+  const wqs = SESSION.answers.filter(a => !a.correct && !a.skipped).map(a => a.q);
+  if (wqs.length === 0) return;
+  runQuiz(shuffle(wqs));
+}
+
+function formatQuestion(text) {
+  if (!text.includes('/')) return formatInlineList(text);
+  const parts = text.split(/\s*\/\s*/);
+  const intro_and_nums = parts[0];
+  const letters_part = parts[1] || '';
+  const introMatch = intro_and_nums.match(/^(.*?)(?=\s*1\.)/s);
+  const intro = introMatch ? introMatch[1].trim() : '';
+  const numItems = [...intro_and_nums.matchAll(/(\d+)\.\s*(.*?)(?=\s+\d+\.|$)/g)]
+    .map(m => `<li>${m[2].trim()}</li>`).join('');
+  const letItems = letters_part
+    ? [...letters_part.matchAll(/([A-Z])\.\s*(.*?)(?=\s+[A-Z]\.|$)/g)]
+        .map(m => `<li><strong>${m[1]}.</strong> ${m[2].trim()}</li>`).join('')
+    : '';
+  let html = '';
+  if (intro) html += `<span style="display:block;margin-bottom:0.6rem">${intro}</span>`;
+  if (numItems) html += `<ol style="margin:0.4rem 0 0.6rem 1.4rem;line-height:1.8">${numItems}</ol>`;
+  if (letItems) html += `<ul style="margin:0 0 0 1.4rem;line-height:1.8;list-style:none">${letItems}</ul>`;
+  return html || text;
+}
+
+function formatInlineList(text) {
+  if (/\s1\.\s/.test(text)) {
+    const introMatch = text.match(/^(.*?)(?=\s*1\.)/s);
+    const intro = introMatch ? introMatch[1].trim() : '';
+    const items = [...text.matchAll(/(\d+)\.\s*(.*?)(?=\s+\d+\.|$)/g)]
+      .map(m => `<li>${m[2].trim()}</li>`).join('');
+    if (items) {
+      return `${intro ? `<span style="display:block;margin-bottom:0.5rem">${intro}</span>` : ''}<ol style="margin:0.3rem 0 0 1.4rem;line-height:1.8">${items}</ol>`;
+    }
+  }
+  return text;
+}
+
+function formatExplanation(text) {
+  const parts = text.split(/(?=\b[a-e]\)\s)/i).filter(p => p.trim());
+  if (parts.length <= 1) return `<span class="exp-line">${text}</span>`;
+  return parts.map(part => {
+    const isCorrect = /is correct/i.test(part);
+    return `<span class="exp-line ${isCorrect ? 'exp-correct' : ''}">${part.trim()}</span>`;
+  }).join('');
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function updateAnsweredStats() {
+  const answeredEl = document.getElementById('stat-answered');
+  const uniqueEl   = document.getElementById('stat-unique');
+  if (answeredEl) answeredEl.textContent = ANSWERED_IDS.length;
+  if (uniqueEl)   uniqueEl.textContent   = UNIQUE_IDS.length;
+}
+
+function updateWrongCount() {
+  const _he = CURRENT_LANG === 'he';
+  const el = document.getElementById('count-wrong');
+  if (el) el.textContent = WRONG_IDS.length + (_he ? ' שגיאות' : ' mistakes');
+  const navEl = document.getElementById('nav-count-wrong');
+  if (navEl) navEl.textContent = WRONG_IDS.length;
+}
+
+function updateStarredCount() {
+  const combinedCount = new Set([...STARRED_IDS, ...Object.keys(NOTES).map(Number).filter(n => !isNaN(n))]).size;
+  const he = CURRENT_LANG === 'he';
+  const el = document.getElementById('count-starred');
+  if (el) el.textContent = combinedCount + (he ? ' מסומנות' : ' starred');
+  const navEl = document.getElementById('nav-count-starred');
+  if (navEl) navEl.textContent = combinedCount;
+}
+
+function toggleStar() {
+  const q = SESSION.questions[SESSION.idx];
+  const gIdx = ACTIVE_Q.indexOf(q);
+  if (gIdx < 0) return;
+  const already = STARRED_IDS.indexOf(gIdx);
+  if (already >= 0) {
+    STARRED_IDS.splice(already, 1);
+  } else {
+    STARRED_IDS.push(gIdx);
+  }
+  const isStarred = STARRED_IDS.includes(gIdx);
+  const starBtn = document.getElementById('btn-star');
+  starBtn.textContent = isStarred ? '⭐' : '☆';
+  starBtn.style.color = isStarred ? '#ffd166' : 'var(--muted)';
+  // Animate
+  starBtn.style.transform = 'scale(1.4)';
+  setTimeout(() => starBtn.style.transform = 'scale(1)', 200);
+  updateStarredCount();
+  persistData();
+}
+
+function saveNote() {
+  const q = SESSION.questions[SESSION.idx];
+  if (!q) return;
+  const gIdx = ACTIVE_Q.indexOf(q);
+  if (gIdx < 0) return;
+  const val = document.getElementById('note-input').value.trim();
+  if (val) NOTES[String(gIdx)] = val;
+  else delete NOTES[String(gIdx)];
+  persistData();
+}
+
+// ── Speed Mode Timer ──
+function startSpeedTimer() {
+  clearSpeedTimer();
+  const fill = document.getElementById('speed-timer-fill');
+  if (fill) { fill.style.transition = 'none'; fill.style.width = '100%'; }
+  // Trigger reflow then animate
+  setTimeout(() => {
+    if (fill) { fill.style.transition = 'width 30s linear'; fill.style.width = '0%'; }
+  }, 50);
+  SPEED_TIMER = setTimeout(() => {
+    // Time's up — count as wrong, move on
+    const opts = document.querySelectorAll('.option');
+    if (opts.length && !opts[0].classList.contains('disabled')) {
+      const q = SESSION.questions[SESSION.idx];
+      opts.forEach(o => o.classList.add('disabled'));
+      opts[q.ans].classList.add('correct');
+      SESSION.wrong++;
+      SESSION.answers.push({ q, chosen: -1, correct: false, timeout: true });
+      const gIdx = ACTIVE_Q.indexOf(q);
+      if (gIdx >= 0) {
+        ANSWERED_IDS.push(gIdx);
+        if (!UNIQUE_IDS.includes(gIdx)) UNIQUE_IDS.push(gIdx);
+        if (!WRONG_IDS.includes(gIdx)) WRONG_IDS.push(gIdx);
+      }
+      document.getElementById('score-live').textContent = `✓ ${SESSION.correct} · ✗ ${SESSION.wrong}`;
+      document.getElementById('btn-skip').classList.add('hidden');
+      document.getElementById('btn-next').classList.remove('hidden');
+      document.getElementById('note-area').classList.remove('hidden');
+      persistData();
+      updateAnsweredStats();
+      // Auto-advance after 1.5s
+      setTimeout(() => advanceOrFinish(), 1500);
+    }
+  }, 30000);
+}
+
+function clearSpeedTimer() {
+  if (SPEED_TIMER) { clearTimeout(SPEED_TIMER); SPEED_TIMER = null; }
+  const fill = document.getElementById('speed-timer-fill');
+  if (fill) { fill.style.transition = 'none'; fill.style.width = '100%'; }
+}
+
+function updateSavedPage() {
+  const he = CURRENT_LANG === 'he';
+  const letters = he ? ['א','ב','ג','ד','ה','ו'] : ['A','B','C','D','E','F'];
+
+  // Build combined index list: starred + notes
+  const notedIdxs = Object.keys(NOTES).map(Number).filter(n => !isNaN(n));
+  const combinedIdxs = [...new Set([...STARRED_IDS, ...notedIdxs])].sort((a,b) => a - b);
+
+  const list = document.getElementById('saved-list');
+  const empty = document.getElementById('saved-empty');
+  if (!list) return;
+
+  if (combinedIdxs.length === 0) {
+    list.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  list.innerHTML = '';
+  combinedIdxs.forEach(idx => {
+    const q = ACTIVE_Q[idx];
+    if (!q) return;
+    const isStarred = STARRED_IDS.includes(idx);
+    const noteVal   = NOTES[String(idx)] || '';
+    const ansLetter = letters[q.ans] || '?';
+    const ansText   = q.opts[q.ans] || '';
+
+    const div = document.createElement('div');
+    div.className = 'saved-item';
+    div.innerHTML = `
+      <div class="saved-item-header">
+        <div class="saved-item-q">${q.q}</div>
+        <div class="saved-item-actions">
+          ${isStarred ? `<button class="btn-unstar" title="הסר כוכב" onclick="removeStar(${idx}, this)">⭐</button>` : `<span style="color:var(--muted);font-size:0.9rem;padding:0.2rem">☆</span>`}
+          <button title="הסר מהרשימה" onclick="removeFromSaved(${idx}, this.closest('.saved-item'))" style="font-size:0.85rem">✕</button>
+        </div>
+      </div>
+      <div class="saved-item-meta">
+        <span class="tag tag-src" style="font-size:0.6rem">${q.src}</span>
+        ${q.lo ? `<span class="tag tag-lo" style="font-size:0.6rem">${q.lo}</span>` : ''}
+        ${(q.k_level||q.k) ? `<span class="tag tag-k" style="font-size:0.6rem">${q.k_level||q.k}</span>` : ''}
+      </div>
+      <div class="saved-item-answer">✓ ${he ? 'תשובה נכונה' : 'Answer'}: ${ansLetter}) ${ansText}</div>
+      <div class="saved-item-note">
+        <div class="saved-item-note-label">📝 ${he ? 'הערה' : 'Note'}</div>
+        <textarea placeholder="${he ? 'הוסף הערה...' : 'Add a note...'}" data-idx="${idx}" onblur="saveNoteFromPage(this)">${noteVal}</textarea>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+
+  // Update subtitle
+  const sub = document.getElementById('saved-page-sub');
+  if (sub) sub.textContent = `${combinedIdxs.length} ${he ? 'שאלות' : 'questions'}`;
+}
+
+function saveNoteFromPage(textarea) {
+  const idx = String(textarea.dataset.idx);
+  const val = textarea.value.trim();
+  if (val) NOTES[idx] = val;
+  else delete NOTES[idx];
+  updateStarredCount();
+  persistData();
+  // If removed note and not starred, remove item from UI
+  if (!val && !STARRED_IDS.includes(Number(idx))) {
+    const item = textarea.closest('.saved-item');
+    if (item) item.style.transition = 'opacity 0.3s';
+    if (item) { item.style.opacity = '0'; setTimeout(() => updateSavedPage(), 320); }
+  }
+}
+
+function removeStar(idx, btn) {
+  const pos = STARRED_IDS.indexOf(idx);
+  if (pos >= 0) STARRED_IDS.splice(pos, 1);
+  updateStarredCount();
+  persistData();
+  // If no note either, remove from list; otherwise just update star icon
+  if (!NOTES[String(idx)]) {
+    const item = btn.closest('.saved-item');
+    if (item) { item.style.transition = 'opacity 0.3s'; item.style.opacity = '0'; setTimeout(() => updateSavedPage(), 320); }
+  } else {
+    updateSavedPage();
+  }
+}
+
+function removeFromSaved(idx, itemEl) {
+  // Remove star
+  const pos = STARRED_IDS.indexOf(idx);
+  if (pos >= 0) STARRED_IDS.splice(pos, 1);
+  // Remove note
+  delete NOTES[String(idx)];
+  updateStarredCount();
+  persistData();
+  if (itemEl) { itemEl.style.transition = 'opacity 0.3s'; itemEl.style.opacity = '0'; setTimeout(() => updateSavedPage(), 320); }
+}
+
+async function clearSaved() {
+  const he = CURRENT_LANG === 'he';
+  if (!confirm(he ? 'למחוק את כל השאלות המסומנות וההערות?' : 'Clear all starred questions and notes?')) return;
+  STARRED_IDS = [];
+  NOTES = {};
+  updateStarredCount();
+  persistData();
+  updateSavedPage();
+}
+
+// ── FLASHCARDS ──────────────────────────────────────────────────────────────
+
+function initFlashcards() {
+  FC_POOL = [...ALL_GLOSSARY];
+  FCO_IDX = 0;
+  renderFlashcards();
+}
+
+function fcSetView(v) {
+  FC_VIEW = v;
+  document.getElementById('fc-view-grid').classList.toggle('active', v === 'grid');
+  document.getElementById('fc-view-one').classList.toggle('active',  v === 'one');
+  renderFlashcards();
+}
+
+function fcSetDirection(d) {
+  FC_DIRECTION = d;
+  document.getElementById('fc-dir-term').classList.toggle('active', d === 'term');
+  document.getElementById('fc-dir-def').classList.toggle('active',  d === 'def');
+  FCO_IDX = 0;
+  renderFlashcards();
+}
+
+function renderFlashcards() {
+  const gridEl = document.getElementById('fc-grid');
+  const oneEl  = document.getElementById('fc-one');
+  const empty  = document.getElementById('fc-empty');
+  const sub    = document.getElementById('fc-sub');
+  if (!gridEl) return;
+
+  if (FC_POOL.length === 0) {
+    gridEl.classList.add('hidden');
+    oneEl.classList.add('hidden');
+    empty.classList.remove('hidden');
+    if (sub) sub.textContent = 'לא נמצאו תוצאות';
+    updateFcProgress();
+    return;
+  }
+  empty.classList.add('hidden');
+  if (sub) sub.textContent = `${FC_POOL.length} מושגים`;
+
+  if (FC_VIEW === 'grid') {
+    oneEl.classList.add('hidden');
+    gridEl.classList.remove('hidden');
+    renderGrid();
+  } else {
+    gridEl.classList.add('hidden');
+    oneEl.classList.remove('hidden');
+    renderOne(null); // null = no entry animation
+  }
+  updateFcProgress();
+}
+
+// ── GRID ──────────────────────────────────────────────────────────────────
+
+function renderGrid() {
+  const grid = document.getElementById('fc-grid');
+  grid.innerHTML = '';
+  const termFirst = FC_DIRECTION === 'term';
+  FC_POOL.forEach(item => {
+    const isKnown = FC_KNOWN.has(item.id);
+    const frontHtml = termFirst
+      ? `<div class="fc-term">${item.term}</div><div class="fc-hint">הפוך ▾</div>`
+      : `<div class="fc-term" style="font-size:0.76rem;font-weight:400;line-height:1.6;text-align:right;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical">${item.definition}</div><div class="fc-hint">הפוך ▾</div>`;
+    const backHtml = termFirst
+      ? `<div class="fc-back-label">הגדרה</div><div class="fc-definition">${item.definition}</div>`
+      : `<div class="fc-back-label">מושג</div><div class="fc-term" style="text-align:center;margin:auto">${item.term}</div>`;
+    const card = document.createElement('div');
+    card.className = 'fc-card' + (isKnown ? ' known' : '');
+    card.dataset.id = item.id;
+    card.innerHTML = `
+      <div class="fc-card-inner">
+        <div class="fc-front">${frontHtml}</div>
+        <div class="fc-back">
+          ${backHtml}
+          <div class="fc-card-footer">
+            <span class="fc-id">#${item.id}</span>
+            <button class="fc-known-btn" onclick="toggleKnown(event,${item.id},this.closest('.fc-card'))">${isKnown?'✓ ידוע':'+ ידוע'}</button>
+          </div>
+        </div>
+      </div>`;
+    card.addEventListener('click', e => {
+      if (e.target.classList.contains('fc-known-btn')) return;
+      card.classList.toggle('flipped');
+    });
+    grid.appendChild(card);
+  });
+}
+
+// ── ONE-AT-A-TIME ─────────────────────────────────────────────────────────
+
+function renderOne(entryDir) {
+  // entryDir: 'right' = coming from prev, 'left' = coming from next, null = instant
+  if (FC_POOL.length === 0) return;
+  if (FCO_IDX >= FC_POOL.length) FCO_IDX = FC_POOL.length - 1;
+  if (FCO_IDX < 0) FCO_IDX = 0;
+
+  const item      = FC_POOL[FCO_IDX];
+  const termFirst = FC_DIRECTION === 'term';
+  const isKnown   = FC_KNOWN.has(item.id);
+
+  document.getElementById('fco-idx').textContent   = FCO_IDX + 1;
+  document.getElementById('fco-total').textContent = FC_POOL.length;
+
+  // Fill content
+  if (termFirst) {
+    document.getElementById('fco-front-label').textContent = 'מושג';
+    document.getElementById('fco-front-content').textContent = item.term;
+    document.getElementById('fco-front-content').style.cssText = 'font-size:1.25rem';
+    document.getElementById('fco-back-label').textContent = 'הגדרה';
+    document.getElementById('fco-back-content').textContent = item.definition;
+    document.getElementById('fco-back-content').style.cssText = 'font-size:0.9rem';
+  } else {
+    document.getElementById('fco-front-label').textContent = 'הגדרה';
+    document.getElementById('fco-front-content').textContent = item.definition;
+    document.getElementById('fco-front-content').style.cssText = 'font-size:0.9rem';
+    document.getElementById('fco-back-label').textContent = 'מושג';
+    document.getElementById('fco-back-content').textContent = item.term;
+    document.getElementById('fco-back-content').style.cssText = 'font-size:1.25rem';
+  }
+
+  const cardEl   = document.getElementById('fco-card');
+  const knownBtn = document.getElementById('fco-known-btn');
+
+  // Reset card state
+  cardEl.className = 'fco-card' + (isKnown ? ' is-known' : '');
+  cardEl.style.cssText = '';
+
+  // Known button
+  if (knownBtn) {
+    knownBtn.textContent = isKnown ? '✓ ידוע' : '⭐ ידוע';
+    knownBtn.classList.toggle('is-known', isKnown);
+  }
+
+  // Entry animation
+  if (entryDir === 'right') {
+    cardEl.classList.add('swipe-in-right');
+    cardEl.addEventListener('animationend', () => cardEl.classList.remove('swipe-in-right'), { once: true });
+  } else if (entryDir === 'left') {
+    cardEl.classList.add('swipe-in-left');
+    cardEl.addEventListener('animationend', () => cardEl.classList.remove('swipe-in-left'), { once: true });
+  }
+
+  // Tap to flip
+  const stage = document.getElementById('fco-stage');
+  stage.onclick = () => cardEl.classList.toggle('flipped');
+
+  // Touch/swipe support
+  fcInitSwipe(stage);
+}
+
+// Navigate without marking known/unknown
+function fcoGo(delta) {
+  const cardEl = document.getElementById('fco-card');
+  cardEl.classList.add('swipe-right');
+  setTimeout(() => {
+    FCO_IDX = Math.max(0, Math.min(FC_POOL.length - 1, FCO_IDX + delta));
+    renderOne('left');
+  }, 280);
+}
+
+// Mark current card as known / not known (toggle)
+function fcoMarkKnown() {
+  const item = FC_POOL[FCO_IDX];
+  if (!item) return;
+  if (FC_KNOWN.has(item.id)) {
+    FC_KNOWN.delete(item.id);
+  } else {
+    FC_KNOWN.add(item.id);
+  }
+  updateFcProgress();
+  // Update card + button state without navigating
+  const cardEl   = document.getElementById('fco-card');
+  const knownBtn = document.getElementById('fco-known-btn');
+  const nowKnown = FC_KNOWN.has(item.id);
+  cardEl.classList.toggle('is-known', nowKnown);
+  if (knownBtn) {
+    knownBtn.textContent = nowKnown ? '✓ ידוע' : '⭐ ידוע';
+    knownBtn.classList.toggle('is-known', nowKnown);
+  }
+}
+
+// Touch swipe
+let _swipeX = null;
+function fcInitSwipe(el) {
+  el.ontouchstart = e => { _swipeX = e.touches[0].clientX; };
+  el.ontouchend   = e => {
+    if (_swipeX === null) return;
+    const dx = e.changedTouches[0].clientX - _swipeX;
+    _swipeX = null;
+    if (Math.abs(dx) < 40) return;
+    // RTL: swipe right (dx>0) = go NEXT (←), swipe left (dx<0) = go PREV (→)
+    if (dx > 0) fcoGo(1); else fcoGo(-1);
+  };
+}
+
+function toggleKnown(e, id, cardEl) {
+  e.stopPropagation();
+  if (FC_KNOWN.has(id)) {
+    FC_KNOWN.delete(id);
+    cardEl.classList.remove('known', 'flipped');
+    cardEl.querySelector('.fc-known-btn').textContent = '+ ידוע';
+  } else {
+    FC_KNOWN.add(id);
+    cardEl.classList.add('known');
+    cardEl.querySelector('.fc-known-btn').textContent = '✓ ידוע';
+  }
+  updateFcProgress();
+}
+
+function updateFcProgress() {
+  const total   = ALL_GLOSSARY.length;
+  const known   = FC_KNOWN.size;
+  const pct     = total ? Math.round(known / total * 100) : 0;
+  const knownEl = document.getElementById('fc-known-count');
+  const fillEl  = document.getElementById('fc-prog-fill');
+  const totEl   = document.getElementById('fc-total-count');
+  if (knownEl) knownEl.textContent = `${known} ידועים`;
+  if (fillEl)  fillEl.style.width  = pct + '%';
+  if (totEl)   totEl.textContent   = `${FC_POOL.length} / ${total}`;
+}
+
+function fcFilter() {
+  const q = (document.getElementById('fc-search')?.value || '').trim().toLowerCase();
+  FC_POOL = q
+    ? ALL_GLOSSARY.filter(x => x.term.toLowerCase().includes(q) || x.definition.includes(q))
+    : [...ALL_GLOSSARY];
+  FCO_IDX = 0;
+  renderFlashcards();
+}
+
+function fcShuffle() {
+  const q = (document.getElementById('fc-search')?.value || '').trim().toLowerCase();
+  const base = q
+    ? ALL_GLOSSARY.filter(x => x.term.toLowerCase().includes(q) || x.definition.includes(q))
+    : [...ALL_GLOSSARY];
+  FC_POOL = shuffle(base);
+  FCO_IDX = 0;
+  renderFlashcards();
+}
+
+function fcFilterUnknown() {
+  FC_POOL = ALL_GLOSSARY.filter(x => !FC_KNOWN.has(x.id));
+  FCO_IDX = 0;
+  document.getElementById('fc-btn-unknown').style.display = 'none';
+  document.getElementById('fc-btn-all').style.display     = 'flex';
+  renderFlashcards();
+}
+
+function fcShowAll() {
+  FC_POOL = [...ALL_GLOSSARY];
+  FCO_IDX = 0;
+  document.getElementById('fc-btn-all').style.display     = 'none';
+  document.getElementById('fc-btn-unknown').style.display = 'flex';
+  const s = document.getElementById('fc-search');
+  if (s) s.value = '';
+  renderFlashcards();
+}
+
+// ── END FLASHCARDS ───────────────────────────────────────────────────────────
+
+loadQuestions(); // loads questions.json; init() fires only after auth resolves
+
+// ========== Firebase Auth + Firestore Module ==========
+
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, getDocs, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBpi_2xLpUL7FNlDRLHW8GTiRTkq5trnfY",
+    authDomain: "istqb-practice-app.firebaseapp.com",
+    projectId: "istqb-practice-app",
+    storageBucket: "istqb-practice-app.firebasestorage.app",
+    messagingSenderId: "246584838246",
+    appId: "1:246584838246:web:d6bd6e8d0f7bcca184c5a7",
+    measurementId: "G-YC3EWP3D40"
+  };
+
+  const app      = initializeApp(firebaseConfig);
+  const db       = getFirestore(app);
+  const auth     = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // ── Save user data to Firestore ──
+  window._fbSaveUserData = async function({ wrongIds, best, answeredIds, uniqueIds, starredIds, notes }) {
+    const uid = window._currentUser?.uid;
+    if (!uid) return;
+    await setDoc(doc(db, "users", uid), {
+      wrongIds,
+      best:        best        ?? null,
+      answeredIds: answeredIds ?? [],
+      uniqueIds:   uniqueIds   ?? [],
+      starredIds:  starredIds  ?? [],
+      notes:       notes       ?? {},
+      updatedAt:   serverTimestamp()
+    }, { merge: true });
+  };
+
+  // ── Clear all stats from Firestore (overwrite + delete history sub-collection) ──
+  window._fbClearUserData = async function() {
+    const uid = window._currentUser?.uid;
+    if (!uid) return;
+    // Overwrite user doc with empty stats (no merge — replaces completely)
+    await setDoc(doc(db, "users", uid), {
+      name:        window._currentUser.displayName,
+      email:       window._currentUser.email,
+      wrongIds:    [],
+      best:        null,
+      answeredIds: [],
+      uniqueIds:   [],
+      updatedAt:   serverTimestamp()
+    });
+    // Delete all quizHistory documents
+    const histSnap = await getDocs(collection(db, "users", uid, "quizHistory"));
+    const deletes = histSnap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deletes);
+  };
+
+  // ── Save a quiz result to history sub-collection ──
+  window._fbSaveQuizHistory = async function(entry) {
+    const uid = window._currentUser?.uid;
+    if (!uid) return;
+    await addDoc(collection(db, "users", uid, "quizHistory"), {
+      ...entry,
+      timestamp: serverTimestamp()
+    });
+  };
+
+  window.loginWithGoogle = async function() {
+    try {
+      const result = await signInWithPopup(auth, provider);
+    } catch (error) {
+      if (error.code === 'auth/popup-closed-by-user' ||
+          error.code === 'auth/cancelled-popup-request') return;
+      console.error("שגיאה בהתחברות:", error);
+      alert("שגיאה בהתחברות: " + error.message);
+    }
+  };
+
+  window.logoutGoogle = async function() {
+    try { await auth.signOut(); }
+    catch (e) { console.error(e); }
+  };
+
+  // Fetch quiz history from Firestore sub-collection
+  async function fetchQuizHistory(uid) {
+    try {
+      const { getDocs, query, orderBy, limit } =
+        await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const q = query(collection(db, "users", uid, "quizHistory"), orderBy("timestamp","desc"), limit(50));
+      const snap = await getDocs(q);
+      QUIZ_HISTORY = snap.docs.map(d => ({ ...d.data(), date: d.data().date || new Date().toISOString() })).reverse();
+    } catch(e) { console.warn("Could not load quiz history", e); }
+  }
+
+  window._fbClearHistory = async function() {
+    const uid = window._currentUser?.uid;
+    if (!uid) return;
+
+    // 1. Wipe main user document fields
+    await setDoc(doc(db, "users", uid), {
+      wrongIds: [], best: null, answeredIds: [], uniqueIds: [], updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    // 2. Delete all quizHistory sub-collection documents
+    try {
+      const { getDocs } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+      const histSnap = await getDocs(collection(db, "users", uid, "quizHistory"));
+      const deletes = histSnap.docs.map(d => deleteDoc(d.ref));
+      await Promise.all(deletes);
+    } catch(e) { console.warn("Could not delete quizHistory", e); }
+
+    QUIZ_HISTORY = [];
+  };
+
+  onAuthStateChanged(auth, async (user) => {
+    const loginWall   = document.getElementById('login-wall');
+    const userInfoDiv = document.getElementById('user-info');
+    const btnLogin    = document.getElementById('btn-login');
+    const btnLogout   = document.getElementById('btn-logout');
+
+    if (user) {
+      window._currentUser = user;
+      window._authReady = true;
+
+      // Hide login wall, show app
+      if (loginWall) loginWall.classList.add('hidden');
+
+      // Update auth UI
+      if (userInfoDiv) userInfoDiv.innerText = "שלום, " + user.displayName;
+      if (btnLogin)  btnLogin.classList.add('hidden');
+      if (btnLogout) btnLogout.classList.remove('hidden');
+
+      // Save/update profile
+      await setDoc(doc(db, "users", user.uid), {
+        name: user.displayName,
+        email: user.email,
+        lastLogin: serverTimestamp()
+      }, { merge: true });
+
+      // Load data from Firestore
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) await window.loadCloudData(snap.data());
+      await fetchQuizHistory(user.uid);
+
+      // Init app now that we have both auth + data
+      if (window._questionsReady) window.init();
+      else window._authReady = true;
+
+    } else {
+      window._currentUser = null;
+      window._authReady = true;
+
+      // Guest mode: hide login wall, allow play without saving
+      if (loginWall) loginWall.classList.add('hidden');
+      WRONG_IDS = []; BEST = null; ANSWERED_IDS = []; UNIQUE_IDS = []; QUIZ_HISTORY = [];
+
+      if (userInfoDiv) userInfoDiv.innerText = "אורח";
+      if (btnLogin)  btnLogin.classList.remove('hidden');
+      if (btnLogout) btnLogout.classList.add('hidden');
+
+      // Init app if questions are ready
+      if (window._questionsReady) window.init();
+    }
+  });
