@@ -1152,8 +1152,9 @@
 
   .nav-theme-label {
     font-size: 0.78rem;
-    color: var(--muted);
+    color: var(--text);
     direction: rtl;
+    opacity: 0.7;
   }
 
   .theme-switch {
@@ -2438,16 +2439,17 @@ function toggleTheme() {
   localStorage.setItem('istqb_theme', isLight ? 'light' : 'dark');
 }
 
-// Load saved theme
+// Load saved theme — default is light mode
 (function() {
   const saved = localStorage.getItem('istqb_theme');
-  if (saved === 'light') {
+  const isDark = saved === 'dark';
+  if (!isDark) {
     document.body.classList.add('light-mode');
-    document.addEventListener('DOMContentLoaded', () => {
-      const sw = document.getElementById('theme-switch-btn');
-      if (sw) sw.classList.add('on');
-    });
   }
+  document.addEventListener('DOMContentLoaded', () => {
+    const sw = document.getElementById('theme-switch-btn');
+    if (sw) sw.classList.toggle('on', !isDark);
+  });
 })();
 
 // Navigate from sidebar: go home first then start mode
