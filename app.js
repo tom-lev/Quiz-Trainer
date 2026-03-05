@@ -572,7 +572,7 @@ function renderQuestion() {
   _enLetters.slice(0, q.opts.length).forEach((letter, i) => {
     const btn = document.createElement('button');
     btn.className = 'option';
-    btn.innerHTML = `<span class="opt-letter">${_letters[i]}</span><span class="opt-text">${md2html(q.opts[i])}</span>`;
+    btn.innerHTML = `<span class="opt-letter">${_letters[i]}</span><span class="opt-text">${q.opts[i]}</span>`;
     btn.onclick = () => selectOption(i);
     opts.appendChild(btn);
   });
@@ -745,10 +745,10 @@ function buildReview() {
       answerLine = `<span style="color:var(--warning)">⊘ ${he ? 'דולג' : 'Skipped'}</span>`;
     } else {
       answerLine = `<span class="${a.correct ? 'review-correct' : 'review-wrong'}">
-        ${a.correct ? '✓' : '✗'} ${he ? 'תשובתך' : 'Your answer'}: ${letters[a.chosen] || '?'}) ${md2html(a.q.opts[a.chosen] || '')}
+        ${a.correct ? '✓' : '✗'} ${he ? 'תשובתך' : 'Your answer'}: ${letters[a.chosen] || '?'}) ${a.q.opts[a.chosen] || ''}
       </span>`;
       if (!a.correct) {
-        answerLine += ` &nbsp; <span class="review-correct">✓ ${he ? 'נכון' : 'Correct'}: ${letters[a.q.ans]}) ${md2html(a.q.opts[a.q.ans])}</span>`;
+        answerLine += ` &nbsp; <span class="review-correct">✓ ${he ? 'נכון' : 'Correct'}: ${letters[a.q.ans]}) ${a.q.opts[a.q.ans]}</span>`;
       }
     }
     div.innerHTML = `
@@ -1043,7 +1043,7 @@ function updateSavedPage() {
         ${q.lo ? `<span class="tag tag-lo" style="font-size:0.6rem">${q.lo}</span>` : ''}
         ${(q.k_level||q.k) ? `<span class="tag tag-k" style="font-size:0.6rem">${q.k_level||q.k}</span>` : ''}
       </div>
-      <div class="saved-item-answer">✓ ${he ? 'תשובה נכונה' : 'Answer'}: ${ansLetter}) ${md2html(ansText)}</div>
+      <div class="saved-item-answer">✓ ${he ? 'תשובה נכונה' : 'Answer'}: ${ansLetter}) ${ansText}</div>
       <div class="saved-item-note">
         <div class="saved-item-note-label">📝 ${he ? 'הערה' : 'Note'}</div>
         <textarea placeholder="${he ? 'הוסף הערה...' : 'Add a note...'}" data-idx="${idx}" onblur="saveNoteFromPage(this)">${noteVal}</textarea>
@@ -1392,7 +1392,7 @@ function openQModal(idx) {
   optsEl.innerHTML = q.opts.map((opt, i) => `
     <div class="q-modal-option ${i === q.ans ? 'correct' : ''}">
       <span class="opt-letter">${letters[i]}</span>
-      <span class="opt-text">${md2html(opt)}</span>
+      <span class="opt-text">${opt}</span>
     </div>
   `).join('');
 
