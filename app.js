@@ -904,8 +904,29 @@ function formatQuestion(text) {
     let html = '';
     let listItems = [];
     let listType = null;
+    let inTable = false;
+    let tableRows = [];
+
+    function flushTable() {
+      if (!tableRows.length) { inTable = false; return; }
+      const rows = tableRows;
+      tableRows = []; inTable = false;
+      const parseRow = r => r.split('|').map(c=>c.trim()).filter((_,i,a)=>i>0&&i<a.length-1);
+      let tableHtml = '<table style="border-collapse:collapse;width:100%;margin:0.6rem 0;font-size:0.85rem">';
+      rows.forEach((row, ri) => {
+        const cells = parseRow(row);
+        const tag = ri === 0 ? 'th' : 'td';
+        const style = ri === 0
+          ? 'background:var(--border);padding:0.35rem 0.6rem;border:1px solid var(--border);font-weight:600;text-align:center'
+          : 'padding:0.35rem 0.6rem;border:1px solid var(--border);text-align:center';
+        tableHtml += '<tr>' + cells.map(c=>`<${tag} style="${style}">${md2html(c)}</${tag}>`).join('') + '</tr>';
+      });
+      tableHtml += '</table>';
+      html += tableHtml;
+    }
 
     function flushList() {
+      if (inTable) flushTable();
       if (!listItems.length) return;
       if (listType === 'bullet') {
         html += `<ul style="margin:0.4rem 0 0.5rem 1.2rem;line-height:1.9">${listItems.map(li=>`<li>${li}</li>`).join('')}</ul>`;
@@ -928,10 +949,16 @@ function formatQuestion(text) {
       else if (rom)  { if (listType && listType!=='roman')    flushList(); listType='roman';    listItems.push(`<strong>${rom[1]}.</strong> ${md2html(rom[2])}`); }
       else if (alph) { if (listType && listType!=='alpha')    flushList(); listType='alpha';    listItems.push(`<strong>${alph[1]})</strong> ${md2html(alph[2])}`); }
       else if (num)  { if (listType && listType!=='numbered') flushList(); listType='numbered'; listItems.push(md2html(num[1])); }
-      else if (line.startsWith('|')) { flushList(); html += `<code style="display:block;font-size:0.75rem;color:var(--muted);margin:0.2rem 0;white-space:pre-wrap;font-family:'Space Mono',monospace">${escH(line)}</code>`; }
+      else if (line.startsWith('|')) {
+        flushList();
+        if (!inTable) { inTable = true; tableRows = []; }
+        if (!line.replace(/[|\-\s]/g,'')) { /* separator row — skip */ }
+        else tableRows.push(line);
+      }
       else           { flushList(); html += `<span style="display:block;margin-bottom:0.35rem">${md2html(line)}</span>`; }
     }
     flushList();
+    if (inTable) flushTable();
     return html || text;
   }
 
