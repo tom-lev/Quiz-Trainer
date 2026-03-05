@@ -589,19 +589,23 @@ function renderQuestion() {
   }
 
   const qTextEl = document.getElementById('q-text');
-  qTextEl.innerHTML = formatQuestion(q.q);
-  // Show image if question has one
-  let qImgEl = document.getElementById('q-img');
-  if (!qImgEl) {
-    qImgEl = document.createElement('div');
-    qImgEl.id = 'q-img';
-    qTextEl.parentNode.insertBefore(qImgEl, qTextEl.nextSibling);
-  }
   if (q.img) {
-    qImgEl.innerHTML = `<img src="${q.img}" alt="שאלה" style="max-width:100%;border-radius:8px;margin:0.6rem 0;display:block">`;
+    // Split question text at the last line ending with ':' before the image
+    const lines = q.q.split('\n');
+    let splitIdx = lines.length; // default: image at end
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].trim().endsWith(':')) { splitIdx = i + 1; break; }
+    }
+    const textBefore = lines.slice(0, splitIdx).join('\n');
+    const textAfter  = lines.slice(splitIdx).join('\n').trim();
+    const imgHtml = `<img src="${q.img}" alt="" style="max-width:100%;border-radius:8px;margin:0.5rem 0;display:block">`;
+    qTextEl.innerHTML = formatQuestion(textBefore) + imgHtml + (textAfter ? formatQuestion(textAfter) : '');
   } else {
-    qImgEl.innerHTML = '';
+    qTextEl.innerHTML = formatQuestion(q.q);
   }
+  // Clear any leftover img element
+  const oldImgEl = document.getElementById('q-img');
+  if (oldImgEl) oldImgEl.remove();
 
   // Star button state
   const gIdx = ACTIVE_Q.indexOf(q);
