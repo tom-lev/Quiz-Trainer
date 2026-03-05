@@ -122,6 +122,9 @@ main { overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column
 .ql-snow .ql-picker-options { background: var(--card) !important; border-color: var(--border) !important; }
 .ql-snow button:hover .ql-stroke, .ql-snow .ql-active .ql-stroke { stroke: var(--accent) !important; }
 .ql-snow button:hover .ql-fill,   .ql-snow .ql-active .ql-fill   { fill:   var(--accent) !important; }
+.ql-direction, .ql-indent { color: var(--muted) !important; font-size: 0.85rem !important; }
+.ql-direction:hover, .ql-indent:hover { color: var(--accent) !important; }
+.ql-snow .ql-picker.ql-direction .ql-picker-label { color: var(--muted) !important; }
 
 /* Answer options */
 .opts-grid { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -450,21 +453,22 @@ async function initAdmin() {
         container: [
           ['bold', 'italic', 'underline'],
           [{ 'color': [] }],
-          [{ 'direction': 'rtl' }],
+          [{ 'align': [] }],
           [{ 'indent': '-1' }, { 'indent': '+1' }],
+          ['rtl-toggle', 'ltr-toggle'],
           ['image'],
           ['clean']
         ],
         handlers: {
           image: insertImageByUrl,
-          direction: function(value) {
-            // Toggle paragraph direction between RTL and LTR
-            const format = this.quill.getFormat();
-            const currentDir = format.direction || 'rtl';
-            const newDir = currentDir === 'rtl' ? 'ltr' : 'rtl';
-            const newAlign = newDir === 'ltr' ? 'left' : 'right';
-            this.quill.format('direction', newDir, 'user');
-            this.quill.format('align', newAlign, 'user');
+          'rtl-toggle': function() {
+            this.quill.format('direction', 'rtl', 'user');
+            this.quill.format('align', 'right', 'user');
+            markUnsaved();
+          },
+          'ltr-toggle': function() {
+            this.quill.format('direction', 'ltr', 'user');
+            this.quill.format('align', 'left', 'user');
             markUnsaved();
           }
         }
@@ -472,6 +476,35 @@ async function initAdmin() {
     }
   });
   quill.on('text-change', () => markUnsaved());
+
+  // Custom RTL / LTR buttons in toolbar
+  setTimeout(() => {
+    const toolbarEl = quill.getModule('toolbar').container;
+    const wrap = document.createElement('span');
+    wrap.className = 'ql-formats';
+    wrap.style.cssText = 'display:inline-flex;gap:3px;align-items:center;';
+
+    const makeBtn = (label, title, dir, align, hoverColor) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.title = title;
+      b.style.cssText = 'font-size:0.7rem;font-weight:600;padding:1px 7px;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:4px;cursor:pointer;line-height:1.6;font-family:var(--mono);';
+      b.onmouseenter = () => b.style.color = hoverColor;
+      b.onmouseleave = () => b.style.color = 'var(--muted)';
+      b.onclick = (e) => {
+        e.preventDefault();
+        quill.format('direction', dir, 'user');
+        quill.format('align', align, 'user');
+        markUnsaved();
+      };
+      return b;
+    };
+
+    wrap.appendChild(makeBtn('RTL ⇒', 'פסקה מימין לשמאל (עברית)', 'rtl', 'right', 'var(--accent)'));
+    wrap.appendChild(makeBtn('⇐ LTR', 'פסקה משמאל לימין (אנגלית)', 'ltr', 'left', 'var(--success)'));
+    toolbarEl.appendChild(wrap);
+  }, 0);
 
   // Load questions JSON
   try {
