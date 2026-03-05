@@ -835,7 +835,9 @@ function formatQuestion(text) {
   }
 
   return md2html(text);
-}(text) {
+}
+
+function formatExplanation(text) {
   const parts = text.split(/(?=\b[a-e]\)\s)/i).filter(p => p.trim());
   if (parts.length <= 1) return `<span class="exp-line">${text}</span>`;
   return parts.map(part => {
