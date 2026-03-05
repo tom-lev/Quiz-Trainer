@@ -288,22 +288,7 @@ main { overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column
           </div>
         </div>
 
-        <!-- Image -->
-        <div class="section">
-          <div class="section-header"><h3>תמונה (אופציונלי)</h3></div>
-          <div class="section-body">
-            <div class="img-row">
-              <input type="text" id="img-url" placeholder="הדבק כאן URL של Google Drive..." oninput="previewImg()">
-              <button class="btn btn-ghost btn-sm" onclick="clearImg()">נקה</button>
-            </div>
-            <p style="font-size:0.72rem;color:var(--muted);margin-top:0.4rem;">
-              ב-Google Drive: קובץ → שתף → "כל מי שיש לו הקישור" → העתק קישור
-            </p>
-            <div class="img-preview-wrap" id="img-preview-wrap">
-              <p class="no-img">אין תמונה</p>
-            </div>
-          </div>
-        </div>
+
 
         <!-- Meta -->
         <div class="section">
@@ -453,16 +438,32 @@ async function initAdmin() {
     direction: 'rtl',
     placeholder: 'טקסט השאלה...',
     modules: {
-      toolbar: [
-        ['bold', 'italic', 'underline'],
-        [{ 'color': [] }],
-        ['image'],
-        ['clean']
-      ]
+      toolbar: {
+        container: [
+          ['bold', 'italic', 'underline'],
+          [{ 'color': [] }],
+          ['image'],
+          ['clean']
+        ],
+        handlers: {
+          image: insertImageByUrl
+        }
+      }
     }
   });
 
   quill.on('text-change', () => markUnsaved());
+}
+
+// ── Insert image at cursor position via URL dialog ──
+function insertImageByUrl() {
+  const url = prompt('הדבק URL של תמונה (Google Drive או כל קישור ישיר):');
+  if (!url || !url.trim()) return;
+  const direct = driveToEmbed(url.trim());
+  const range = quill.getSelection(true);
+  quill.insertEmbed(range.index, 'image', direct, 'user');
+  quill.setSelection(range.index + 1);
+  markUnsaved();
 }
 
 async function loadEditedMap() {
@@ -615,15 +616,7 @@ function setCorrect(oi) {
 }
 
 // ── Image preview ──
-function previewImg() {
-  const url  = document.getElementById('img-url').value.trim();
-  const wrap = document.getElementById('img-preview-wrap');
-  if (!url) { wrap.innerHTML = '<p class="no-img">אין תמונה</p>'; return; }
 
-  // Convert Google Drive share link to direct embed link
-  const direct = driveToEmbed(url);
-  wrap.innerHTML = `<img src="${direct}" alt="תמונה" class="img-preview" onerror="this.parentElement.innerHTML='<p class=no-img style=color:var(--danger)>❌ לא ניתן לטעון תמונה</p>'">`;
-}
 
 function driveToEmbed(url) {
   const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -631,10 +624,7 @@ function driveToEmbed(url) {
   return url;
 }
 
-function clearImg() {
-  document.getElementById('img-url').value = '';
-  previewImg(); markUnsaved();
-}
+
 
 // ── Unsaved tracking ──
 function markUnsaved() {
@@ -656,8 +646,6 @@ async function saveQuestion() {
   const opts  = [...document.querySelectorAll('.opt-row textarea')].map(t => t.value.trim());
   const ansEl = document.querySelector('.opt-letter.correct');
   const ans   = ansEl ? parseInt(ansEl.dataset.oi) : 0;
-  const imgUrl = document.getElementById('img-url').value.trim();
-
   const payload = {
     q:       qText,
     opts,
@@ -666,8 +654,7 @@ async function saveQuestion() {
     q_num:   parseInt(document.getElementById('meta-qnum').value) || CURRENT_IDX + 1,
     lo:      document.getElementById('meta-lo').value.trim(),
     k_level: document.getElementById('meta-klevel').value,
-    lang:    'he',
-    ...(imgUrl ? { img: imgUrl } : {})
+    lang:    'he'
   };
 
   const btn = document.getElementById('btn-save');
