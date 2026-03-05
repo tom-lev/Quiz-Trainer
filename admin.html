@@ -412,27 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Init Admin ──
 async function initAdmin() {
-  // Load questions JSON
-  try {
-    const resp = await fetch('questions_he.json');
-    ALL_QUESTIONS = await resp.json();
-  } catch(e) {
-    toast('❌ לא ניתן לטעון questions_he.json', 'err'); return;
-  }
-
-  // Load existing edits from Firestore
-  await loadEditedMap();
-
-  // Build source filter
-  buildSourceFilter();
-
-  // Build list
-  filterList();
-
-  document.getElementById('header-stats').textContent =
-    `${ALL_QUESTIONS.length} שאלות · ${Object.keys(EDITED_MAP).length} ערוכות`;
-
-  // Init Quill
+  // Init Quill FIRST — so populateEditor never runs before it exists
   quill = new Quill('#quill-editor', {
     theme: 'snow',
     direction: 'rtl',
@@ -451,8 +431,25 @@ async function initAdmin() {
       }
     }
   });
-
   quill.on('text-change', () => markUnsaved());
+
+  // Load questions JSON
+  try {
+    const resp = await fetch('questions_he.json');
+    ALL_QUESTIONS = await resp.json();
+  } catch(e) {
+    toast('❌ לא ניתן לטעון questions_he.json', 'err'); return;
+  }
+
+  // Load existing edits from Firestore
+  await loadEditedMap();
+
+  // Build source filter + list
+  buildSourceFilter();
+  filterList();
+
+  document.getElementById('header-stats').textContent =
+    `${ALL_QUESTIONS.length} שאלות · ${Object.keys(EDITED_MAP).length} ערוכות`;
 }
 
 // ── Insert image at cursor position via URL dialog ──
@@ -557,6 +554,8 @@ function openNew() {
 }
 
 function populateEditor(q, idx) {
+  if (!quill) { console.warn('Quill not ready'); return; }
+
   document.getElementById('empty-state').style.display  = 'none';
   document.getElementById('editor-area').style.display  = 'flex';
 
