@@ -85,30 +85,41 @@ window._fbClearUserData = null;
 window._currentUser     = null;
 
 // Called whenever data changes
+let _pendingPersist = false;
 async function persistData() {
-  if (window._fbSaveUserData && window._currentUser) {
-    try {
-      await window._fbSaveUserData({
-        wrongIds:    WRONG_IDS,
-        best:        BEST,
-        answeredIds: ANSWERED_IDS,
-        uniqueIds:   UNIQUE_IDS,
-        starredIds:  STARRED_IDS,
-        notes:       NOTES
-      });
-    } catch(e) { console.error('persistData failed:', e); }
+  if (!window._fbSaveUserData || !window._currentUser) {
+    // Firebase not ready yet — mark dirty, it will save once auth is ready
+    _pendingPersist = true;
+    return;
   }
+  _pendingPersist = false;
+  try {
+    await window._fbSaveUserData({
+      wrongIds:    WRONG_IDS,
+      best:        BEST,
+      answeredIds: ANSWERED_IDS,
+      uniqueIds:   UNIQUE_IDS,
+      starredIds:  STARRED_IDS,
+      notes:       NOTES
+    });
+  } catch(e) { console.error('persistData failed:', e); }
 }
 
 // Called after login — load cloud data directly into memory
 async function loadCloudData(data) {
   if (!data) return;
-  WRONG_IDS    = Array.isArray(data.wrongIds)    ? data.wrongIds    : [];
-  BEST         = data.best                        ? data.best        : null;
-  ANSWERED_IDS = Array.isArray(data.answeredIds) ? data.answeredIds : [];
-  UNIQUE_IDS   = Array.isArray(data.uniqueIds)   ? data.uniqueIds   : [];
-  STARRED_IDS  = Array.isArray(data.starredIds)  ? data.starredIds  : [];
-  NOTES        = (data.notes && typeof data.notes === 'object') ? data.notes : {};
+  // Only load from cloud if we don't have unsaved local changes
+  if (!_pendingPersist) {
+    WRONG_IDS    = Array.isArray(data.wrongIds)    ? data.wrongIds    : [];
+    BEST         = data.best                        ? data.best        : null;
+    ANSWERED_IDS = Array.isArray(data.answeredIds) ? data.answeredIds : [];
+    UNIQUE_IDS   = Array.isArray(data.uniqueIds)   ? data.uniqueIds   : [];
+    STARRED_IDS  = Array.isArray(data.starredIds)  ? data.starredIds  : [];
+    NOTES        = (data.notes && typeof data.notes === 'object') ? data.notes : {};
+  } else {
+    // We have local changes that haven't been saved yet — persist them now
+    await persistData();
+  }
 
   const bestEl = document.getElementById('stat-best');
   if (bestEl) bestEl.textContent = BEST ? BEST + '%' : '—';
