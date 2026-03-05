@@ -588,7 +588,20 @@ function renderQuestion() {
     meta.innerHTML += `<a class="tag tag-link answers" href="${examLinks.answers}" target="_blank" rel="noopener">✅ תשובות</a>`;
   }
 
-  document.getElementById('q-text').innerHTML = formatQuestion(q.q);
+  const qTextEl = document.getElementById('q-text');
+  qTextEl.innerHTML = formatQuestion(q.q);
+  // Show image if question has one
+  let qImgEl = document.getElementById('q-img');
+  if (!qImgEl) {
+    qImgEl = document.createElement('div');
+    qImgEl.id = 'q-img';
+    qTextEl.parentNode.insertBefore(qImgEl, qTextEl.nextSibling);
+  }
+  if (q.img) {
+    qImgEl.innerHTML = `<img src="${q.img}" alt="שאלה" style="max-width:100%;border-radius:8px;margin:0.6rem 0;display:block">`;
+  } else {
+    qImgEl.innerHTML = '';
+  }
 
   // Star button state
   const gIdx = ACTIVE_Q.indexOf(q);
