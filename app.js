@@ -499,8 +499,7 @@ async function clearAllStats() {
   ANSWERED_IDS = [];
   UNIQUE_IDS   = [];
   QUIZ_HISTORY = [];
-  STARRED_IDS  = [];
-  NOTES        = {};
+  // STARRED_IDS and NOTES are intentionally preserved
   updateWrongCount();
   updateAnsweredStats();
   updateStarredCount();
