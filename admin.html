@@ -369,16 +369,17 @@ main { overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column
 const ADMIN_EMAIL = 'tomer9tomer@gmail.com';
 
 // ── State ──
-let ALL_QUESTIONS = [];
-let EDITED_MAP    = {};   // { index: savedData } — what's in Firestore
-let CURRENT_IDX   = null;
+let ALL_QUESTIONS  = [];
+let EDITED_MAP     = {};
+let CURRENT_IDX    = null;
 let CURRENT_IS_NEW = false;
-let quill         = null;
-let filterCache   = [];
+let quill          = null;
+let filterCache    = [];
 let unsavedChanges = false;
+let _adminInited   = false;   // guard — prevent double init
 
-// ── Wait for Firebase auth before doing anything ──
-window.loadCloudData = async function() {};  // not needed here
+// ── Not needed in admin ──
+window.loadCloudData = async function() {};
 
 // ── Auth gate ──
 window._onAdminAuthReady = async function(user) {
@@ -387,6 +388,7 @@ window._onAdminAuthReady = async function(user) {
   const app          = document.getElementById('app');
 
   if (!user) {
+    _adminInited = false;
     loginWall.classList.remove('hidden');
     accessDenied.classList.add('hidden');
     app.classList.remove('show');
@@ -400,35 +402,28 @@ window._onAdminAuthReady = async function(user) {
     return;
   }
 
-  // ✅ Authorized
+  // ✅ Authorized — init only once
+  if (_adminInited) return;
+  _adminInited = true;
+
   loginWall.classList.add('hidden');
   accessDenied.classList.add('hidden');
   app.classList.add('show');
   await initAdmin();
 };
 
-// ── Firebase module calls this once auth resolves ──
-// We override onAuthStateChanged callback via a hook in firebase.js
-// Instead, poll for _currentUser or listen via a custom event
+// Single interval — detects auth ready + login/logout changes
 document.addEventListener('DOMContentLoaded', () => {
-  // Poll until firebase.js fires onAuthStateChanged
-  const check = setInterval(() => {
-    if (window._authReady !== undefined) {
-      clearInterval(check);
-      window._onAdminAuthReady(window._currentUser);
+  let _lastUser = undefined;
+  setInterval(() => {
+    if (!window._authReady) return;
+    const cur = window._currentUser ?? null;
+    if (cur !== _lastUser) {
+      _lastUser = cur;
+      window._onAdminAuthReady(cur);
     }
-  }, 100);
+  }, 300);
 });
-
-// Also re-check if auth changes (login/logout)
-const _origAuth = Object.getOwnPropertyDescriptor(window, '_currentUser');
-let _lastUser = null;
-setInterval(() => {
-  if (window._currentUser !== _lastUser) {
-    _lastUser = window._currentUser;
-    if (window._authReady) window._onAdminAuthReady(window._currentUser);
-  }
-}, 300);
 
 // ── Init Admin ──
 async function initAdmin() {
