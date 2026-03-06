@@ -149,22 +149,23 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/fire
       if (btnLogin)  btnLogin.classList.add('hidden');
       if (btnLogout) btnLogout.classList.remove('hidden');
 
-      // Load data from Firestore FIRST, then update profile (merge won't overwrite other fields)
-      const snap = await getDoc(doc(db, "users", user.uid));
-      console.log('[FIREBASE] Loaded from Firestore:', JSON.stringify(snap.data()?.starredIds));
-      if (snap.exists()) await window.loadCloudData(snap.data());
+      // Init app immediately — don't wait for Firestore
+      if (window._questionsReady) window.init();
+      else window._authReady = true;
 
-      // Save/update profile metadata only (merge:true won't touch starredIds etc.)
+      // Load Firestore data in background (non-blocking)
+      getDoc(doc(db, "users", user.uid)).then(async snap => {
+        console.log('[FIREBASE] Loaded from Firestore:', JSON.stringify(snap.data()?.starredIds));
+        if (snap.exists()) await window.loadCloudData(snap.data());
+        await fetchQuizHistory(user.uid);
+      }).catch(e => console.warn('[FIREBASE] Could not load user data:', e));
+
+      // Save/update profile metadata
       setDoc(doc(db, "users", user.uid), {
         name: user.displayName,
         email: user.email,
         lastLogin: serverTimestamp()
       }, { merge: true }).catch(console.error);
-      await fetchQuizHistory(user.uid);
-
-      // Init app now that we have both auth + data
-      if (window._questionsReady) window.init();
-      else window._authReady = true;
 
     } else {
       window._currentUser = null;
