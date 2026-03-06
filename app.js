@@ -167,8 +167,10 @@ async function loadQuestions() {
       try { ALL_GLOSSARY = await respGlossary.json(); } catch(e) {}
     }
 
-    // ── Merge admin edits from Firestore ──
-    await applyAdminEdits();
+    // ── Merge admin edits from Firestore (non-blocking) ──
+    // Don't await — let the app init immediately from JSON,
+    // then apply Firestore edits in the background
+    applyAdminEdits();
 
     window._questionsReady = true;
     if (window._authReady) init();
