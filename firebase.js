@@ -177,6 +177,7 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/fire
 
       // Guest mode: hide login wall, allow play without saving
       if (loginWall) loginWall.classList.add('hidden');
+      window._cloudDataReady = true;
       WRONG_IDS = []; BEST = null; ANSWERED_IDS = []; UNIQUE_IDS = []; QUIZ_HISTORY = [];
 
       if (userInfoDiv) userInfoDiv.innerText = "אורח";
