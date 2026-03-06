@@ -156,7 +156,11 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/fire
       // Load Firestore data in background (non-blocking)
       getDoc(doc(db, "users", user.uid)).then(async snap => {
         console.log('[FIREBASE] Loaded from Firestore:', JSON.stringify(snap.data()?.starredIds));
-        if (snap.exists()) await window.loadCloudData(snap.data());
+        if (snap.exists()) {
+          // Clear sessionStorage so Firestore data takes precedence over the empty initial state
+          sessionStorage.removeItem('istqb_session_data');
+          await window.loadCloudData(snap.data());
+        }
         await fetchQuizHistory(user.uid);
       }).catch(e => console.warn('[FIREBASE] Could not load user data:', e));
 
