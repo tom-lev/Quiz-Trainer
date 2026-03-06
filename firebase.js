@@ -20,6 +20,7 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/fire
   const db       = getFirestore(app);
   const auth     = getAuth(app);
   const provider = new GoogleAuthProvider();
+  window._firestoreDb = db; // expose for app.js admin edits
 
   // ── Save user data to Firestore ──
   let _saveInProgress = false;
@@ -52,11 +53,11 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/fire
     }
   };
 
-  // ── Clear all stats from Firestore (overwrite + delete history sub-collection) ──
+  // ── Clear all stats from Firestore (preserve starredIds + notes) ──
   window._fbClearUserData = async function() {
     const uid = window._currentUser?.uid;
     if (!uid) return;
-    // Overwrite user doc with empty stats (no merge — replaces completely)
+    // Use merge:true so starredIds and notes are NOT overwritten
     await setDoc(doc(db, "users", uid), {
       name:        window._currentUser.displayName,
       email:       window._currentUser.email,
@@ -65,7 +66,7 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/fire
       answeredIds: [],
       uniqueIds:   [],
       updatedAt:   serverTimestamp()
-    });
+    }, { merge: true });
     // Delete all quizHistory documents
     const histSnap = await getDocs(collection(db, "users", uid, "quizHistory"));
     const deletes = histSnap.docs.map(d => deleteDoc(d.ref));

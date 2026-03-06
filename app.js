@@ -167,6 +167,9 @@ async function loadQuestions() {
       try { ALL_GLOSSARY = await respGlossary.json(); } catch(e) {}
     }
 
+    // ── Merge admin edits from Firestore ──
+    await applyAdminEdits();
+
     window._questionsReady = true;
     if (window._authReady) init();
   } catch(e) {
@@ -181,6 +184,33 @@ async function loadQuestions() {
     } catch(e2) {
       document.getElementById('loading').innerHTML = '<span style="color:#ff6584">⚠ Could not load questions.json</span>';
     }
+  }
+}
+
+// ── Load admin edits from Firestore and apply over the base JSON ──
+async function applyAdminEdits() {
+  try {
+    const { getFirestore, collection, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+    // Re-use the already-initialised app via a global reference set by firebase.js
+    const db = window._firestoreDb;
+    if (!db) return; // firebase not loaded yet — skip silently
+
+    const snap = await getDocs(collection(db, "editedQuestions"));
+    if (snap.empty) return;
+
+    snap.forEach(docSnap => {
+      const idx  = parseInt(docSnap.id, 10);
+      const data = docSnap.data();
+      if (!isNaN(idx) && data.lang === 'he' && ALL_Q_HE[idx]) {
+        ALL_Q_HE[idx] = { ...ALL_Q_HE[idx], ...data };
+      } else if (!isNaN(idx) && data.lang !== 'he' && ALL_Q[idx]) {
+        ALL_Q[idx] = { ...ALL_Q[idx], ...data };
+      }
+    });
+    console.log(`[ADMIN] Applied ${snap.size} edited question(s) from Firestore`);
+  } catch(e) {
+    console.warn('[ADMIN] Could not load edits from Firestore:', e);
   }
 }
 
@@ -469,8 +499,7 @@ async function clearAllStats() {
   ANSWERED_IDS = [];
   UNIQUE_IDS   = [];
   QUIZ_HISTORY = [];
-  STARRED_IDS  = [];
-  NOTES        = {};
+  // STARRED_IDS and NOTES are intentionally preserved
   updateWrongCount();
   updateAnsweredStats();
   updateStarredCount();
@@ -1011,12 +1040,75 @@ function formatQuestion(text) {
 }
 
 function formatExplanation(text) {
-  const parts = text.split(/(?=\b[a-e]\)\s)/i).filter(p => p.trim());
-  if (parts.length <= 1) return `<span class="exp-line">${text}</span>`;
-  return parts.map(part => {
-    const isCorrect = /is correct/i.test(part);
-    return `<span class="exp-line ${isCorrect ? 'exp-correct' : ''}">${part.trim()}</span>`;
-  }).join('');
+  // If saved as Quill HTML — extract plain text first
+  if (/<[a-z][\s\S]*>/i.test(text)) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = text;
+    tmp.querySelectorAll('p, br, li, div').forEach(el => {
+      el.insertAdjacentText('afterend', '\n');
+    });
+    text = tmp.textContent.trim();
+  }
+
+  // Normalize: insert newline before each option marker (a) b) c) d))
+  // handles both "...text a) next..." and already-newlined formats
+  text = text.replace(/\s+([a-d]\))\s+/gi, (_, letter) => `\n${letter} `);
+
+  // Split into lines and parse
+  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const optionRegex = /^([a-d])\)\s*/i;
+
+  const introLines = [];
+  const groups = [];
+  let inOptions = false;
+
+  for (const line of lines) {
+    const m = line.match(/^([a-d])\)\s*(.*)/i);
+    if (m) {
+      inOptions = true;
+      groups.push({ letter: m[1].toLowerCase(), text: m[2] });
+    } else if (inOptions && groups.length) {
+      groups[groups.length - 1].text += ' ' + line;
+    } else {
+      introLines.push(line);
+    }
+  }
+
+  // Fallback: no structured options found
+  if (!groups.length) {
+    return `<div class="exp-intro">${text}</div>`;
+  }
+
+  let html = '';
+  if (introLines.length) {
+    html += `<div class="exp-intro">${introLines.join(' ')}</div>`;
+  }
+
+  html += '<div class="exp-options">';
+  for (const g of groups) {
+    const isCorrect = /is correct/i.test(g.text);
+    html += buildExpRow(g.letter, g.text.trim(), isCorrect);
+  }
+  html += '</div>';
+
+  return html;
+}
+
+function buildExpRow(letter, body, isCorrect) {
+  // Separate "IS CORRECT" / "is correct" tag from the rest of the body
+  const tagMatch = body.match(/^(.*?)\s*\bis correct\b\.?\s*(.*)/i);
+  let displayBody = body;
+  if (tagMatch) {
+    const before = tagMatch[1].trim();
+    const after  = tagMatch[2].trim();
+    displayBody  = [before, after].filter(Boolean).join(' — ');
+  }
+  return `
+    <div class="exp-row ${isCorrect ? 'exp-row-correct' : ''}">
+      <span class="exp-letter">${letter.toUpperCase()}</span>
+      <span class="exp-body">${displayBody}</span>
+      ${isCorrect ? '<span class="exp-tag">✓ נכון</span>' : ''}
+    </div>`;
 }
 
 function shuffle(arr) {
