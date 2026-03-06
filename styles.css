@@ -349,6 +349,16 @@
 
   .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
 
+  .btn-report {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    font-size: 0.75rem;
+    opacity: 0.5;
+    margin-right: auto;
+  }
+  .btn-report:hover { color: #ff6b6b; border-color: rgba(255,107,107,0.3); opacity: 1; }
+
   .btn-row {
     display: flex;
     gap: 0.8rem;
