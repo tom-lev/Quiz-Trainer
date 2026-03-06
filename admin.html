@@ -310,7 +310,8 @@ main { overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column
         <!-- Answer options -->
         <div class="section">
           <div class="section-header">
-            <h3>תשובות <span style="color:var(--muted);font-weight:400;font-size:0.68rem;text-transform:none;">(לחץ על העיגול לסמן נכונה)</span></h3>
+            <h3>תשובות <span style="color:var(--muted);font-weight:400;font-size:0.68rem;text-transform:none;">(לחץ על העיגול לסמן נכונה — ניתן לסמן יותר מאחת)</span></h3>
+            <button class="btn btn-ghost btn-sm" onclick="addOption()" style="font-size:0.72rem">+ הוסף אפשרות</button>
           </div>
           <div class="section-body">
             <div class="opts-grid" id="opts-grid"></div>
@@ -318,16 +319,6 @@ main { overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column
         </div>
 
 
-
-        <!-- Explanation -->
-        <div class="section">
-          <div class="section-header">
-            <h3>הסבר לתשובה הנכונה <span style="color:var(--muted);font-weight:400;font-size:0.68rem;text-transform:none;">(מוצג למשתמש אחרי הגשה)</span></h3>
-          </div>
-          <div class="section-body">
-            <div id="quill-exp"></div>
-          </div>
-        </div>
 
         <!-- Meta -->
         <div class="section">
@@ -417,7 +408,6 @@ let EDITED_MAP     = {};
 let CURRENT_IDX    = null;
 let CURRENT_IS_NEW = false;
 let quill          = null;
-let quillExp       = null;
 let optQuills      = [];
 let filterCache    = [];
 let unsavedChanges = false;
@@ -505,35 +495,7 @@ async function initAdmin() {
   });
   quill.on('text-change', () => markUnsaved());
 
-  // Init explanation Quill
-  quillExp = new Quill('#quill-exp', {
-    theme: 'snow',
-    direction: 'rtl',
-    placeholder: 'הסבר לתשובה הנכונה (אופציונלי)...',
-    modules: {
-      toolbar: {
-        container: [
-          ['bold', 'italic', 'underline'],
-          [{ 'color': [] }],
-          [{ 'direction': 'rtl' }],
-          [{ 'indent': '-1' }, { 'indent': '+1' }],
-          ['clean']
-        ],
-        handlers: {
-          direction: function(value) {
-            const format = this.quill.getFormat();
-            const currentDir = format.direction || 'rtl';
-            const newDir = currentDir === 'rtl' ? 'ltr' : 'rtl';
-            const newAlign = newDir === 'ltr' ? 'left' : 'right';
-            this.quill.format('direction', newDir, 'user');
-            this.quill.format('align', newAlign, 'user');
-            markUnsaved();
-          }
-        }
-      }
-    }
-  });
-  quillExp.on('text-change', () => markUnsaved());
+  // Load questions JSON
   try {
     const resp = await fetch('questions_he.json');
     ALL_QUESTIONS = await resp.json();
@@ -673,67 +635,14 @@ function populateEditor(q, idx) {
   grid.innerHTML = '';
   // Destroy old opt quillers
   optQuills = [];
-  const opts     = q.opts     && q.opts.length     ? q.opts     : ['', '', '', ''];
-  opts.forEach((opt, oi) => {
-    const isCorrect = oi === q.ans;
-    const row = document.createElement('div');
-    row.className = 'opt-row';
-    row.innerHTML = `
-      <div class="opt-letter${isCorrect ? ' correct' : ''}"
-           data-oi="${oi}" onclick="setCorrect(${oi})" title="לחץ לסמן כתשובה נכונה">
-        ${String.fromCharCode(65 + oi)}
-      </div>
-      <div class="opt-quill-wrap" style="flex:1;">
-        <div id="opt-quill-${oi}"></div>
-      </div>
-    `;
-    grid.appendChild(row);
-  });
+  const opts = q.opts && q.opts.length ? q.opts : ['', '', '', ''];
+  // ans can be a number (single) or array (multi)
+  const ansArr = Array.isArray(q.ans) ? q.ans : (q.ans !== undefined ? [q.ans] : [0]);
 
-  // Init each opt Quill after DOM is set
   opts.forEach((opt, oi) => {
-    const oq = new Quill(`#opt-quill-${oi}`, {
-      theme: 'snow',
-      placeholder: `תשובה ${String.fromCharCode(65 + oi)}...`,
-      modules: {
-        toolbar: {
-          container: [
-            ['bold', 'italic', 'underline'],
-            [{ 'direction': 'rtl' }],
-            [{ 'indent': '-1' }, { 'indent': '+1' }],
-            ['clean']
-          ],
-          handlers: {
-            direction: function(value) {
-              const format = this.quill.getFormat();
-              const currentDir = format.direction || 'rtl';
-              const newDir   = currentDir === 'rtl' ? 'ltr' : 'rtl';
-              const newAlign = newDir === 'ltr' ? 'left' : 'right';
-              this.quill.format('direction', newDir, 'user');
-              this.quill.format('align', newAlign, 'user');
-              markUnsaved();
-            }
-          }
-        }
-      }
-    });
-    if (opt && opt.startsWith('<')) {
-      oq.root.innerHTML = opt;
-    } else {
-      oq.setText(opt || '');
-    }
-    oq.on('text-change', () => markUnsaved());
-    optQuills[oi] = oq;
+    const isCorrect = ansArr.includes(oi);
+    addOptionRow(opt, oi, isCorrect);
   });
-
-  // Explanation
-  if (quillExp) {
-    if (q.exp && q.exp.startsWith('<')) {
-      quillExp.root.innerHTML = q.exp;
-    } else {
-      quillExp.setText(q.exp || '');
-    }
-  }
 
   // Meta
   document.getElementById('meta-src').value    = q.src    || '';
@@ -769,11 +678,70 @@ function populateEditor(q, idx) {
   clearUnsaved();
 }
 
-// ── Correct answer ──
-function setCorrect(oi) {
-  document.querySelectorAll('.opt-letter').forEach((el, i) => {
-    el.classList.toggle('correct', i === oi);
+// ── Add a single option row with its own Quill ──
+function addOptionRow(text, oi, isCorrect) {
+  const grid = document.getElementById('opts-grid');
+  const letter = String.fromCharCode(65 + oi);
+  const row = document.createElement('div');
+  row.className = 'opt-row';
+  row.dataset.oi = oi;
+  row.innerHTML = `
+    <div class="opt-letter${isCorrect ? ' correct' : ''}"
+         data-oi="${oi}" onclick="toggleCorrect(${oi})" title="לחץ לסמן/לבטל תשובה נכונה">
+      ${letter}
+    </div>
+    <div class="opt-quill-wrap" style="flex:1;">
+      <div id="opt-quill-${oi}"></div>
+    </div>
+  `;
+  grid.appendChild(row);
+
+  const oq = new Quill(`#opt-quill-${oi}`, {
+    theme: 'snow',
+    placeholder: `תשובה ${letter}...`,
+    modules: {
+      toolbar: {
+        container: [
+          ['bold', 'italic', 'underline'],
+          [{ 'direction': 'rtl' }],
+          [{ 'indent': '-1' }, { 'indent': '+1' }],
+          ['clean']
+        ],
+        handlers: {
+          direction: function(value) {
+            const format = this.quill.getFormat();
+            const currentDir = format.direction || 'rtl';
+            const newDir   = currentDir === 'rtl' ? 'ltr' : 'rtl';
+            const newAlign = newDir === 'ltr' ? 'left' : 'right';
+            this.quill.format('direction', newDir, 'user');
+            this.quill.format('align', newAlign, 'user');
+            markUnsaved();
+          }
+        }
+      }
+    }
   });
+  if (text && text.startsWith('<')) {
+    oq.root.innerHTML = text;
+  } else {
+    oq.setText(text || '');
+  }
+  oq.on('text-change', () => markUnsaved());
+  optQuills[oi] = oq;
+}
+
+// ── Add a new empty option ──
+function addOption() {
+  const oi = optQuills.length;
+  if (oi >= 8) { toast('מקסימום 8 אפשרויות', 'err'); return; }
+  addOptionRow('', oi, false);
+  markUnsaved();
+}
+
+// ── Toggle correct answer (supports multi) ──
+function toggleCorrect(oi) {
+  const el = document.querySelector(`.opt-letter[data-oi="${oi}"]`);
+  if (el) el.classList.toggle('correct');
   markUnsaved();
 }
 
@@ -806,8 +774,9 @@ async function saveQuestion() {
 
   const qText = quill.root.innerHTML.trim();
   const opts  = optQuills.map(oq => oq.root.innerHTML.trim());
-  const ansEl = document.querySelector('.opt-letter.correct');
-  const ans   = ansEl ? parseInt(ansEl.dataset.oi) : 0;
+  const correctEls = document.querySelectorAll('.opt-letter.correct');
+  const correctIdxs = Array.from(correctEls).map(el => parseInt(el.dataset.oi));
+  const ans = correctIdxs.length === 1 ? correctIdxs[0] : correctIdxs;
   const expRaw = quillExp ? quillExp.root.innerHTML.trim() : '';
   const expText = (expRaw === '<p><br></p>' || expRaw === '<p></p>') ? '' : expRaw;
   const payload = {
