@@ -102,7 +102,8 @@ async function persistData() {
   _pendingPersist = false;
   _lastSaveTime = Date.now();
   const payload = { wrongIds: WRONG_IDS, best: BEST, answeredIds: ANSWERED_IDS,
-                    uniqueIds: UNIQUE_IDS, starredIds: STARRED_IDS, notes: NOTES };
+                    uniqueIds: UNIQUE_IDS, starredIds: STARRED_IDS, notes: NOTES,
+                    savedAt: Date.now() };
   try { sessionStorage.setItem('istqb_session_data', JSON.stringify(payload)); } catch(e) {}
   console.log('[PERSIST] Saving starredIds:', JSON.stringify(STARRED_IDS));
   if (!window._fbSaveUserData || !window._currentUser) { _pendingPersist = true; return; }
@@ -122,32 +123,39 @@ async function persistData() {
 // Called after login — load cloud data directly into memory
 async function loadCloudData(data) {
   if (!data) return;
-  // Use sessionStorage as the source of truth within a browser session.
-  // If sessionStorage has data, it means the user already interacted this session
-  // and we should use that instead of the (possibly stale) Firestore snapshot.
   const sessionKey = 'istqb_session_data';
   const sessionRaw = sessionStorage.getItem(sessionKey);
+
+  // Compare timestamps: use whichever is newer — sessionStorage or Firestore
+  let useSession = false;
   if (sessionRaw) {
     try {
       const local = JSON.parse(sessionRaw);
-      WRONG_IDS    = local.wrongIds    ?? [];
-      BEST         = local.best        ?? null;
-      ANSWERED_IDS = local.answeredIds ?? [];
-      UNIQUE_IDS   = local.uniqueIds   ?? [];
-      STARRED_IDS  = local.starredIds  ?? [];
-      NOTES        = local.notes       ?? {};
-      console.log('[LOAD] Restored from sessionStorage, starredIds count:', STARRED_IDS.length);
-      window._cloudDataReady = true;
-      const bestEl = document.getElementById('stat-best');
-      if (bestEl) bestEl.textContent = BEST ? BEST + '%' : '—';
-      updateWrongCount();
-      updateAnsweredStats();
-      updateStarredCount();
-      // Push to Firestore in case it's ahead
-      await persistData();
-      return;
+      const localTs = local.savedAt ?? 0;
+      // Firestore updatedAt comes as a Timestamp object or millis
+      const cloudTs = data.updatedAt?.toMillis?.() ?? data.updatedAt?.seconds * 1000 ?? 0;
+      // Use sessionStorage only if it's from THIS device and newer than Firestore
+      if (localTs > cloudTs) {
+        useSession = true;
+        WRONG_IDS    = local.wrongIds    ?? [];
+        BEST         = local.best        ?? null;
+        ANSWERED_IDS = local.answeredIds ?? [];
+        UNIQUE_IDS   = local.uniqueIds   ?? [];
+        STARRED_IDS  = local.starredIds  ?? [];
+        NOTES        = local.notes       ?? {};
+        console.log('[LOAD] sessionStorage is newer (local:', localTs, 'cloud:', cloudTs, ') using local');
+        window._cloudDataReady = true;
+        const bestElS = document.getElementById('stat-best');
+        if (bestElS) bestElS.textContent = BEST ? BEST + '%' : '—';
+        updateWrongCount(); updateAnsweredStats(); updateStarredCount();
+        await persistData();
+        return;
+      } else {
+        console.log('[LOAD] Firestore is newer or equal (local:', localTs, 'cloud:', cloudTs, ') using Firestore');
+      }
     } catch(e) { sessionStorage.removeItem(sessionKey); }
   }
+  // (sessionStorage was older or missing — fall through to Firestore)
   // First load this session — use Firestore data
   WRONG_IDS    = Array.isArray(data.wrongIds)    ? data.wrongIds    : [];
   BEST         = data.best                        ? data.best        : null;
