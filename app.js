@@ -566,22 +566,17 @@ function startMode(mode) {
       ? (he ? '⚡🔥 מצב בזק' : '⚡🔥 Speed Mode')
       : (he ? '🎲 חידון אקראי' : '🎲 Random Quiz');
 
-    // Update slider: max = pool size, step = 5, "all" when at max
+    // Reset slider: 5–40, step 5, "∞ הכל" at max
     const rng = document.getElementById('rng-count');
     const lbl = document.getElementById('lbl-count');
     if (rng) {
-      const poolSize = ACTIVE_Q.length;
-      // Round max down to nearest multiple of 5, min 40
-      const sliderMax = Math.max(40, Math.ceil(poolSize / 5) * 5);
-      rng.max = sliderMax;
-      rng.step = 5;
-      // Keep current value or clamp to new max
-      const cur = Math.min(parseInt(rng.value) || 20, sliderMax);
+      rng.min = 5; rng.max = 40; rng.step = 5;
+      const cur = Math.min(Math.max(5, parseInt(rng.value) || 20), 40);
       rng.value = cur;
-      if (lbl) lbl.textContent = cur >= sliderMax ? '∞ הכל' : cur;
+      if (lbl) lbl.textContent = cur >= 40 ? '∞ הכל' : cur;
       rng.oninput = function() {
         const v = parseInt(this.value);
-        if (lbl) lbl.textContent = v >= parseInt(this.max) ? '∞ הכל' : v;
+        if (lbl) lbl.textContent = v >= 40 ? '∞ הכל' : v;
       };
     }
 
