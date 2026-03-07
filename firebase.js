@@ -155,12 +155,20 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.7.1/fire
 
       // Load Firestore data in background (non-blocking)
       getDocFromServer(doc(db, "users", user.uid)).then(async snap => {
-        console.log('[FIREBASE] Loaded from Firestore:', JSON.stringify(snap.data()?.starredIds));
+        console.log('[FIREBASE] snap.exists:', snap.exists());
+        console.log('[FIREBASE] snap.data keys:', snap.exists() ? Object.keys(snap.data()).join(',') : 'N/A');
+        console.log('[FIREBASE] starredIds:', JSON.stringify(snap.data()?.starredIds));
         if (snap.exists()) {
           await window.loadCloudData(snap.data());
+        } else {
+          console.warn('[FIREBASE] Document does not exist for uid:', user.uid);
+          window._cloudDataReady = true;
         }
         await fetchQuizHistory(user.uid);
-      }).catch(e => console.warn('[FIREBASE] Could not load user data:', e));
+      }).catch(e => {
+        console.error('[FIREBASE] ERROR loading user data:', e?.code, e?.message);
+        window._cloudDataReady = true;
+      });
 
       // Save/update profile metadata
       setDoc(doc(db, "users", user.uid), {
