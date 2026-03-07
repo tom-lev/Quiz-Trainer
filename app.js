@@ -666,15 +666,16 @@ function renderQuestion() {
   document.getElementById('score-live').textContent = `✓ ${SESSION.correct} · ✗ ${SESSION.wrong}`;
 
   const meta = document.getElementById('q-meta');
-  meta.innerHTML = `<span class="tag tag-src">${q.src}</span>`;
-  if (q.q_num) meta.innerHTML += `<span class="tag tag-qnum">שאלה ${q.q_num}</span>`;
-  if (q.k) meta.innerHTML += `<span class="tag tag-k">${q.k}</span>`;
-  if (q.k_level) meta.innerHTML += `<span class="tag tag-k">${q.k_level}</span>`;
   const examLinks = EXAM_LINKS[q.src];
+  let metaHtml = `<span class="tag tag-src">${q.src}</span>`;
+  if (q.q_num) metaHtml += `<span class="tag tag-qnum">שאלה ${q.q_num}</span>`;
+  if (q.k)     metaHtml += `<span class="tag tag-k">${q.k}</span>`;
+  if (q.k_level) metaHtml += `<span class="tag tag-k">${q.k_level}</span>`;
   if (examLinks) {
-    meta.innerHTML += `<a class="tag tag-link" href="${examLinks.questions}" target="_blank" rel="noopener">📄 שאלות</a>`;
-    meta.innerHTML += `<a class="tag tag-link answers" href="${examLinks.answers}" target="_blank" rel="noopener">✅ תשובות</a>`;
+    metaHtml += `<a class="tag tag-link" href="${examLinks.questions}" target="_blank" rel="noopener">📄 שאלות</a>`;
+    metaHtml += `<a class="tag tag-link answers" href="${examLinks.answers}" target="_blank" rel="noopener">✅ תשובות</a>`;
   }
+  meta.innerHTML = metaHtml;
 
   const qTextEl = document.getElementById('q-text');
   if (q.img) {
