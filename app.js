@@ -137,6 +137,12 @@ async function loadCloudData(data) {
       STARRED_IDS  = local.starredIds  ?? [];
       NOTES        = local.notes       ?? {};
       console.log('[LOAD] Restored from sessionStorage, starredIds count:', STARRED_IDS.length);
+      window._cloudDataReady = true;
+      const bestEl = document.getElementById('stat-best');
+      if (bestEl) bestEl.textContent = BEST ? BEST + '%' : '—';
+      updateWrongCount();
+      updateAnsweredStats();
+      updateStarredCount();
       // Push to Firestore in case it's ahead
       await persistData();
       return;
