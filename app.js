@@ -566,17 +566,17 @@ function startMode(mode) {
       ? (he ? '⚡🔥 מצב בזק' : '⚡🔥 Speed Mode')
       : (he ? '🎲 חידון אקראי' : '🎲 Random Quiz');
 
-    // Reset slider: 5–40, step 5, "∞ הכל" at max
+    // Slider: 5,10,...,40 are real values; 45 = "∞ הכל"
     const rng = document.getElementById('rng-count');
     const lbl = document.getElementById('lbl-count');
     if (rng) {
-      rng.min = 5; rng.max = 40; rng.step = 5;
-      const cur = Math.min(Math.max(5, parseInt(rng.value) || 20), 40);
+      rng.min = 5; rng.max = 45; rng.step = 5;
+      const cur = Math.min(Math.max(5, parseInt(rng.value) || 20), 45);
       rng.value = cur;
-      if (lbl) lbl.textContent = cur >= 40 ? '∞ הכל' : cur;
+      if (lbl) lbl.textContent = cur >= 45 ? '∞ הכל' : cur;
       rng.oninput = function() {
         const v = parseInt(this.value);
-        if (lbl) lbl.textContent = v >= 40 ? '∞ הכל' : v;
+        if (lbl) lbl.textContent = v >= 45 ? '∞ הכל' : v;
       };
     }
 
@@ -632,7 +632,7 @@ function beginQuiz() {
   const klevel = document.getElementById('sel-klevel').value;
   const rng = document.getElementById('rng-count');
   const count = parseInt(rng.value);
-  const useAll = count >= parseInt(rng.max);
+  const useAll = count >= 45;
   const order = document.getElementById('sel-order').value;
   let pool = selectedSrcs.length === 0 ? ACTIVE_Q : ACTIVE_Q.filter(q => selectedSrcs.includes(q.src));
   if (klevel !== 'all') pool = pool.filter(q => (q.k_level || q.k) === klevel);
