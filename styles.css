@@ -306,7 +306,7 @@
   .field input[type=range] {
     padding: 0.6rem 0;
     accent-color: var(--accent);
-    direction: ltr;
+    direction: rtl;
   }
 
   .range-row {
