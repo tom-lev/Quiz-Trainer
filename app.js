@@ -120,7 +120,7 @@ async function persistData() {
 }
 
 // Called after login — load cloud data directly into memory
-async function loadCloudData(data) {
+window.loadCloudData = async function loadCloudData(data) {
   if (!data) return;
   // sessionStorage = same browser/device this session → always preferred (it's the freshest local state)
   // No sessionStorage = new device/browser → load from Firestore
@@ -424,7 +424,7 @@ function setLang(lang) {
   if (lblKlevel) lblKlevel.textContent = he ? 'רמת קושי' : 'Difficulty';
 }
 
-function init() {
+window.init = function init() {
   document.getElementById('stat-total').textContent = ALL_Q.length;
   document.getElementById('count-random').textContent = ALL_Q.length + ' Questions';
   updateWrongCount();
