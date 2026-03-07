@@ -1109,9 +1109,10 @@ function formatExplanation(text) {
     text = tmp.textContent.trim();
   }
 
-  // Normalize: insert newline before each option marker (a) b) c) d))
-  // handles both "...text a) next..." and already-newlined formats
-  text = text.replace(/\s+([a-e]\))\s+/gi, (_, letter) => `\n${letter} `);
+  // Normalize: insert newline before option markers ONLY when they appear as standalone
+  // e.g. "...text a) next..." but NOT inside parentheses like "(1 – C)"
+  // Rule: split only if the letter is preceded by whitespace (not a digit/dash/letter)
+  text = text.replace(/(?<![(\d\w–-])\s+([a-e]\))\s+/gi, (_, letter) => `\n${letter} `);
 
   // Split into lines and parse
   const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
