@@ -425,11 +425,29 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  .q-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 1.2rem;
+    flex-wrap: nowrap;
+    direction: rtl;
+  }
+
   .q-meta {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 1.2rem;
     flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .q-icon-btns {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    flex-shrink: 0;
   }
 
   .tag {
@@ -1010,7 +1028,7 @@
   }
 
   body.lang-he .q-meta {
-    flex-direction: row-reverse;
+    direction: rtl;
   }
 
   body.lang-he .q-footer {

@@ -196,14 +196,14 @@
   </div>
 
   <div class="q-card" id="q-card">
-    <div class="q-meta" id="q-meta"></div>
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.8rem">
-      <div class="q-text" id="q-text" style="flex:1"></div>
-      <div style="display:flex;align-items:center;gap:0.3rem;flex-shrink:0">
+    <div class="q-meta-row">
+      <div class="q-meta" id="q-meta"></div>
+      <div class="q-icon-btns">
         <button id="btn-star" onclick="toggleStar()" title="סמן לחזרה" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);padding:0.2rem;transition:all 0.2s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">☆</button>
         <button id="btn-report" onclick="reportQuestion()" title="דווח על בעיה" style="background:transparent;border:none;font-size:1.1rem;cursor:pointer;color:#cc2222;padding:0.2rem;transition:all 0.2s;line-height:1" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">⚑</button>
       </div>
     </div>
+    <div class="q-text" id="q-text"></div>
 
     <!-- Personal note — always visible -->
     <div id="note-area" style="margin-bottom:1rem">
