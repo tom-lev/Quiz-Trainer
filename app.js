@@ -1124,8 +1124,18 @@ function formatExplanation(text) {
   }
 
   // Normalize: insert newline before option markers a) b) c) d) e)
-  // Block only when preceded by digit/dash (inside parens like "(3 – B)")
-  text = text.replace(/(?<![\d–-])\s+([a-e]\))\s*/gi, (_, letter) => `\n${letter} `);
+  // Only block when the pattern looks like "(X – Y)" i.e. digit-dash-letter inside parens
+  // Strategy: first protect patterns like "(1 – C)" or "(3-B)" with a placeholder,
+  // then split on remaining X) patterns, then restore
+  const protected_map = {};
+  let pid = 0;
+  text = text.replace(/\([^)]*[a-e][^)]*\)/gi, m => {
+    const key = `__P${pid++}__`;
+    protected_map[key] = m;
+    return key;
+  });
+  text = text.replace(/\s+([a-e]\))\s*/gi, (_, letter) => `\n${letter} `);
+  Object.entries(protected_map).forEach(([k, v]) => { text = text.replace(k, v); });
 
   // Split on transition words like "Thus:" "Therefore:" "So:"
   text = text.replace(/\s+(Thus|Therefore|So|Hence|Note):/gi, (_, word) => `\n${word}:`);
