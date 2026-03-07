@@ -120,7 +120,7 @@ async function persistData() {
 }
 
 // Called after login — load cloud data directly into memory
-window.loadCloudData = async function loadCloudData(data) {
+window.loadCloudData = async function(data) {
   if (!data) return;
   // sessionStorage = same browser/device this session → always preferred (it's the freshest local state)
   // No sessionStorage = new device/browser → load from Firestore
@@ -141,7 +141,8 @@ window.loadCloudData = async function loadCloudData(data) {
       const bestElS = document.getElementById('stat-best');
       if (bestElS) bestElS.textContent = BEST ? BEST + '%' : '—';
       updateWrongCount(); updateAnsweredStats(); updateStarredCount();
-      // Do NOT call persistData here — no need to re-save on a plain refresh
+      // Flush any saves queued before cloud data was ready (e.g. starred before Firestore loaded)
+      if (_pendingPersist) await persistData();
       return;
     } catch(e) { sessionStorage.removeItem(sessionKey); }
   }
@@ -424,7 +425,7 @@ function setLang(lang) {
   if (lblKlevel) lblKlevel.textContent = he ? 'רמת קושי' : 'Difficulty';
 }
 
-window.init = function init() {
+window.init = function() {
   document.getElementById('stat-total').textContent = ALL_Q.length;
   document.getElementById('count-random').textContent = ALL_Q.length + ' Questions';
   updateWrongCount();
