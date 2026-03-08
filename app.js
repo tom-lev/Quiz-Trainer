@@ -295,8 +295,8 @@ function setLang(lang) {
     mc('mc-desc-exam').textContent    = he ? '40 שאלות המדמות תנאי ISTQB אמיתיים.' : '40-question exam simulating real ISTQB conditions.';
     mc('mc-count-exam').textContent   = he ? '40 שאלות' : '40 Questions';
     mc('mc-title-speed').textContent  = he ? 'שאלות על זמן' : 'Speed Mode';
-mc('mc-desc-speed').textContent   = he ? 'קבעו זמן לשאלה: 10–90 שניות — טעות אוטומטית אם לא עונים בזמן.' : 'Set time per question: 10–90 seconds — auto-wrong if time runs out.';
-mc('mc-count-speed').textContent  = he ? '10–90 שנ׳ לשאלה' : '10–90s / question';
+    mc('mc-desc-speed').textContent   = he ? `${SPEED_SECONDS} שניות לשאלה — טעות אוטומטית אם לא עונים בזמן.` : `${SPEED_SECONDS} seconds per question — auto-wrong if time runs out.`;
+    mc('mc-count-speed').textContent  = he ? `${SPEED_SECONDS} שנ׳ לשאלה` : `${SPEED_SECONDS}s / question`;
   }
 
   // ── Sidebar labels ──
