@@ -76,8 +76,7 @@ let UNIQUE_IDS   = [];
 let QUIZ_HISTORY = [];
 let STARRED_IDS  = [];   // ⭐ starred question indices
 let NOTES        = {};   // { questionIndex: "note text" }
-let SPEED_MODE    = false;
-let SPEED_SECONDS = 30; // default 30s, configurable 10–90
+let SPEED_MODE   = false;
 let SPEED_TIMER  = null;
 
 // ── Firestore bridge (set by Firebase module once ready) ──
@@ -295,8 +294,8 @@ function setLang(lang) {
     mc('mc-desc-exam').textContent    = he ? '40 שאלות המדמות תנאי ISTQB אמיתיים.' : '40-question exam simulating real ISTQB conditions.';
     mc('mc-count-exam').textContent   = he ? '40 שאלות' : '40 Questions';
     mc('mc-title-speed').textContent  = he ? 'מצב בזק' : 'Speed Mode';
-    mc('mc-desc-speed').textContent   = he ? `${SPEED_SECONDS} שניות לשאלה — טעות אוטומטית אם לא עונים בזמן.` : `${SPEED_SECONDS} seconds per question — auto-wrong if time runs out.`;
-    mc('mc-count-speed').textContent  = he ? `${SPEED_SECONDS} שנ׳ לשאלה` : `${SPEED_SECONDS}s / question`;
+    mc('mc-desc-speed').textContent   = he ? '30 שניות לשאלה — טעות אוטומטית אם לא עונים בזמן.' : '30 seconds per question — auto-wrong if time runs out.';
+    mc('mc-count-speed').textContent  = he ? '30 שנ׳ לשאלה' : '30s / question';
   }
 
   // ── Sidebar labels ──
@@ -579,24 +578,6 @@ function startMode(mode) {
         const v = parseInt(this.value);
         if (lbl) lbl.textContent = v >= 45 ? '∞ הכל' : v;
       };
-    }
-
-    // Speed timer slider (only for speed mode)
-    const timerWrap = document.getElementById('speed-timer-config');
-    if (timerWrap) {
-      timerWrap.classList.toggle('hidden', mode !== 'speed');
-      if (mode === 'speed') {
-        const timerRng = document.getElementById('rng-speed-timer');
-        const timerLbl = document.getElementById('lbl-speed-timer');
-        if (timerRng) {
-          timerRng.value = SPEED_SECONDS;
-          if (timerLbl) timerLbl.textContent = SPEED_SECONDS + (he ? ' שנ׳' : 's');
-          timerRng.oninput = function() {
-            SPEED_SECONDS = parseInt(this.value);
-            if (timerLbl) timerLbl.textContent = SPEED_SECONDS + (he ? ' שנ׳' : 's');
-          };
-        }
-      }
     }
 
     showScreen('config');
@@ -1359,7 +1340,7 @@ async function startSpeedTimer() {
   if (fill) { fill.style.transition = 'none'; fill.style.width = '100%'; }
   // Trigger reflow then animate
   setTimeout(() => {
-    if (fill) { fill.style.transition = `width ${SPEED_SECONDS}s linear`; fill.style.width = '0%'; }
+    if (fill) { fill.style.transition = 'width 30s linear'; fill.style.width = '0%'; }
   }, 50);
   SPEED_TIMER = setTimeout(() => {
     // Time's up — count as wrong, move on
@@ -1385,7 +1366,7 @@ async function startSpeedTimer() {
       // Auto-advance after 1.5s
       setTimeout(() => advanceOrFinish(), 1500);
     }
-  }, SPEED_SECONDS * 1000);
+  }, 30000);
 }
 
 function clearSpeedTimer() {
@@ -1668,14 +1649,14 @@ function renderOne(entryDir) {
     document.getElementById('fco-front-content').style.cssText = 'font-size:1.25rem';
     document.getElementById('fco-back-label').textContent = 'הגדרה';
     document.getElementById('fco-back-content').textContent = item.definition;
-    document.getElementById('fco-back-content').style.cssText = 'font-size:0.9rem';
+    document.getElementById('fco-back-content').style.cssText = 'font-size:0.9rem;text-align:right;width:100%';
   } else {
     document.getElementById('fco-front-label').textContent = 'הגדרה';
     document.getElementById('fco-front-content').textContent = item.definition;
     document.getElementById('fco-front-content').style.cssText = 'font-size:0.9rem';
     document.getElementById('fco-back-label').textContent = 'מושג';
     document.getElementById('fco-back-content').textContent = item.term;
-    document.getElementById('fco-back-content').style.cssText = 'font-size:1.25rem';
+    document.getElementById('fco-back-content').style.cssText = 'font-size:1.25rem;text-align:center';
   }
 
   const cardEl   = document.getElementById('fco-card');
