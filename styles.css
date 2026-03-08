@@ -1311,6 +1311,8 @@
   .nav-btn .nav-icon { font-size: 1rem; line-height: 1; flex-shrink: 0; }
   .nav-btn:hover { color: var(--text); background: rgba(108,99,255,0.1); }
   .nav-btn.active { color: var(--accent); background: rgba(108,99,255,0.15); }
+  .nav-btn.nav-btn-report { color: #cc2222; font-size: 0.78rem; opacity: 0.75; }
+  .nav-btn.nav-btn-report:hover { color: #aa1111; background: rgba(204,34,34,0.08); opacity: 1; }
 
   .nav-divider {
     height: 1px;

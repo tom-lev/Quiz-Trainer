@@ -893,6 +893,19 @@ function reportQuestion() {
   }
 }
 
+function reportGeneral() {
+  const subject = `בעיה כללית באפליקציית ISTQB`;
+  const body    = `שלום,\n\nמצאתי בעיה באפליקציה.\n\nסוג הבעיה:\n[ ] תצוגה / עיצוב\n[ ] ניווט / כפתורים\n[ ] נתונים / סטטיסטיקות\n[ ] אחר\n\nתיאור הבעיה:\n[פרט כאן את הבעיה]\n\nדפדפן / מכשיר:\n[לדוגמא: Chrome על Windows / Safari על iPhone]\n`;
+
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
+    window.location.href = `mailto:tomer9tomer@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  } else {
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&to=tomer9tomer%40gmail.com&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(gmailUrl, '_blank');
+  }
+}
+
 function skipQuestion() {
   clearSpeedTimer();
   SESSION.skipped++;
