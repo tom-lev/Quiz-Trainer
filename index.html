@@ -91,7 +91,7 @@
       <div class="mode-desc" id="mc-desc-random">שאלות אקראיות מכל המאגרים. הגדר כמות, מקור ורמת קושי.</div>
       <div class="mode-count" id="count-random">All Questions</div>
     </div>
-    <div class="mode-card pink" onclick="startMode('exam')">
+    <div class="mode-card pink" onclick="startMode('exam')" id="home-exam-card">
       <div class="mode-icon">📋</div>
       <div class="mode-title" id="mc-title-exam">סימולציית בחינה</div>
       <div class="mode-desc" id="mc-desc-exam">40 שאלות המדמות תנאי ISTQB אמיתיים.</div>
@@ -113,6 +113,84 @@
 </div>
 
 <!-- Config -->
+<!-- Exam Config Screen -->
+<div id="exam-config" class="screen hidden">
+  <div class="exam-cfg-box">
+
+    <!-- Header -->
+    <div class="exam-cfg-header">
+      <div class="exam-cfg-icon">📋</div>
+      <div>
+        <div class="exam-cfg-title">סימולציית בחינה</div>
+        <div class="exam-cfg-subtitle">40 שאלות · 60 דקות · סף מעבר 65%</div>
+      </div>
+    </div>
+
+    <!-- K-level info strip -->
+    <div class="exam-klevel-strip">
+      <div class="exam-klevel-badge k1">
+        <span class="ekb-label">K1</span>
+        <span class="ekb-count">8 שאלות</span>
+        <span class="ekb-desc">זכירה</span>
+      </div>
+      <div class="exam-klevel-sep">+</div>
+      <div class="exam-klevel-badge k2">
+        <span class="ekb-label">K2</span>
+        <span class="ekb-count">24 שאלות</span>
+        <span class="ekb-desc">הבנה</span>
+      </div>
+      <div class="exam-klevel-sep">+</div>
+      <div class="exam-klevel-badge k3">
+        <span class="ekb-label">K3</span>
+        <span class="ekb-count">8 שאלות</span>
+        <span class="ekb-desc">יישום</span>
+      </div>
+    </div>
+    <div class="exam-klevel-note">חלוקה מדויקת לפי תקן ISTQB הרשמי — בדיוק כמו הבחינה האמיתית</div>
+
+    <!-- Source picker -->
+    <div class="exam-cfg-section">
+      <div class="exam-cfg-section-label">בחר מקור שאלות</div>
+      <div id="exam-src-checks" class="exam-src-grid">
+        <label class="exam-src-tile exam-src-all-tile">
+          <input type="checkbox" id="exam-src-all" checked onchange="toggleAllExamSources(this.checked)">
+          <span class="exam-src-tile-icon">🔀</span>
+          <span class="exam-src-tile-name">ערבב מכל הבחינות</span>
+          <span class="exam-src-tile-tag">מומלץ</span>
+        </label>
+        <label class="exam-src-tile">
+          <input type="checkbox" class="exam-src-cb" value="בחינה לדוגמא גרסה א'">
+          <span class="exam-src-tile-icon">א׳</span>
+          <span class="exam-src-tile-name">גרסה א׳</span>
+        </label>
+        <label class="exam-src-tile">
+          <input type="checkbox" class="exam-src-cb" value="בחינה לדוגמא גרסה ב'">
+          <span class="exam-src-tile-icon">ב׳</span>
+          <span class="exam-src-tile-name">גרסה ב׳</span>
+        </label>
+        <label class="exam-src-tile">
+          <input type="checkbox" class="exam-src-cb" value="בחינה לדוגמא גרסה ג'">
+          <span class="exam-src-tile-icon">ג׳</span>
+          <span class="exam-src-tile-name">גרסה ג׳</span>
+        </label>
+        <label class="exam-src-tile">
+          <input type="checkbox" class="exam-src-cb" value="בחינה לדוגמא גרסה ד'">
+          <span class="exam-src-tile-icon">ד׳</span>
+          <span class="exam-src-tile-name">גרסה ד׳</span>
+        </label>
+      </div>
+      <div class="exam-src-hint">ניתן לבחור מספר גרסאות — השאלות יעורבבו ללא חזרות</div>
+    </div>
+
+    <!-- Actions -->
+    <div class="exam-cfg-actions">
+      <button class="btn btn-primary exam-cfg-start" onclick="beginExam()">התחל סימולציה ←</button>
+      <button class="btn btn-ghost" onclick="showScreen('home')">→ חזרה</button>
+    </div>
+
+  </div>
+</div>
+
 <div id="config" class="screen hidden">
   <div class="config-box">
     <div class="config-title" id="config-title">חידון אקראי 🎲</div>
@@ -190,6 +268,18 @@
     <div class="score-badge" id="score-live">✓ 0 · ✗ 0</div>
   </div>
 
+  <!-- Exam question navigation bar -->
+  <div id="exam-nav-bar" class="hidden" style="margin:-0.5rem 0 0.5rem;direction:rtl">
+    <div id="exam-nav-pills" style="display:flex;flex-wrap:wrap;gap:0.3rem;padding:0.6rem 0.4rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;justify-content:flex-start"></div>
+    <div style="display:flex;gap:1rem;padding:0.3rem 0.4rem 0;font-size:0.72rem;color:var(--muted)">
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--success);vertical-align:middle;margin-left:3px"></span>נענה נכון</span>
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--error);vertical-align:middle;margin-left:3px"></span>נענה שגוי</span>
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--warning);vertical-align:middle;margin-left:3px"></span>דולג</span>
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--accent);vertical-align:middle;margin-left:3px"></span>נוכחי</span>
+      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--border);vertical-align:middle;margin-left:3px"></span>לא נענה</span>
+    </div>
+  </div>
+
   <!-- Speed mode timer bar -->
   <div id="speed-timer-wrap" class="hidden" style="height:4px;background:var(--border);border-radius:100px;overflow:hidden;margin:-0.5rem 0 0.5rem">
     <div id="speed-timer-fill" style="height:100%;width:100%;background:linear-gradient(90deg,var(--success),var(--warning),var(--error));border-radius:100px;transition:width 1s linear"></div>
@@ -225,6 +315,8 @@
   <div class="q-footer">
     <button class="btn btn-ghost" id="btn-skip" onclick="skipQuestion()">דלג ←</button>
     <button class="btn btn-primary hidden" id="btn-next" onclick="nextQuestion()">הבא ←</button>
+    <button class="btn btn-ghost hidden" id="btn-back-exam" onclick="goBackExam()" style="margin-right:auto">→ חזור</button>
+    <button class="btn btn-primary hidden" id="btn-finish-exam" onclick="finishExam()" style="background:var(--success)">✓ סיים בחינה</button>
   </div>
 </div>
 
