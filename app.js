@@ -440,7 +440,7 @@ window._questionsReady = false;
 window._authReady      = false;
 
 function showScreen(id) {
-  ['loading','home','config','quiz','results','stats-page','about-page','saved-page','flashcards-page'].forEach(s => {
+  ['loading','home','config','exam-config','quiz','results','stats-page','about-page','saved-page','flashcards-page'].forEach(s => {
     const el = document.getElementById(s);
     if (el) el.classList.add('hidden');
   });
@@ -448,7 +448,7 @@ function showScreen(id) {
   const nav = document.getElementById('global-nav');
   const toggleBtn = document.getElementById('sidebar-toggle-btn');
   const logoBar = document.getElementById('top-logo-bar');
-  const noNav = ['loading','config','quiz','results'];
+  const noNav = ['loading','config','exam-config','quiz','results'];
   const hide = noNav.includes(id);
   if (nav) {
     nav.classList.toggle('hidden-nav', hide);
@@ -564,7 +564,7 @@ function startMode(mode) {
 
   if (mode === 'random' || mode === 'speed') {
     document.getElementById('config-title').textContent = mode === 'speed'
-      ? (he ? '⚡🔥 מצב בזק' : '⚡🔥 Speed Mode')
+      ? (he ? '⚡🔥 שאלות על זמן' : '⚡🔥 Speed Mode')
       : (he ? '🎲 חידון אקראי' : '🎲 Random Quiz');
 
     // Slider: 5,10,...,40 are real values; 45 = "∞ הכל"
@@ -601,7 +601,7 @@ function startMode(mode) {
 
     showScreen('config');
   } else if (mode === 'exam') {
-    runQuiz(shuffle(ACTIVE_Q).slice(0, 40));
+    showScreen('exam-config');
   } else if (mode === 'wrong') {
     const wqs = ACTIVE_Q.filter((q, i) => WRONG_IDS.includes(i));
     if (wqs.length === 0) {
@@ -645,6 +645,81 @@ document.addEventListener('change', function(e) {
   }
 });
 
+// ── Exam source checkboxes toggle ──
+window.toggleAllExamSources = function(checked) {
+  document.querySelectorAll('.exam-src-cb').forEach(cb => cb.checked = false);
+  document.getElementById('exam-src-all').checked = checked;
+};
+
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('exam-src-cb')) {
+    const anyCbChecked = [...document.querySelectorAll('.exam-src-cb')].some(cb => cb.checked);
+    document.getElementById('exam-src-all').checked = !anyCbChecked;
+  }
+});
+
+// ── Build exam question pool with K-level distribution ──
+function buildExamPool() {
+  const he = CURRENT_LANG === 'he';
+  const allCb = document.getElementById('exam-src-all');
+  const selectedSrcs = allCb && allCb.checked
+    ? []
+    : [...document.querySelectorAll('.exam-src-cb:checked')].map(cb => cb.value);
+
+  // Exclude keyword quiz questions
+  let pool = ACTIVE_Q.filter(q => !q.src || !q.src.includes('מילות מפתח') && !q.src.includes('keyword') && !q.src.includes('Keyword'));
+
+  if (selectedSrcs.length === 1) {
+    // Single source: use all 40 from that source (already K-distributed correctly)
+    pool = pool.filter(q => q.src === selectedSrcs[0]);
+    return shuffle(pool).slice(0, 40);
+  }
+
+  // Multiple sources (or all): pick without duplicates, enforce K-level distribution
+  // Deduplicate by question text (normalize whitespace)
+  const normalize = s => s ? s.replace(/\s+/g, ' ').trim() : '';
+  const seen = new Set();
+  const uniquePool = pool.filter(q => {
+    const key = normalize(q.q);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Filter by selected sources
+  const srcFiltered = selectedSrcs.length === 0 ? uniquePool : uniquePool.filter(q => selectedSrcs.includes(q.src));
+
+  // Partition by K level
+  const k1Pool = shuffle(srcFiltered.filter(q => (q.k_level || q.k) === 'K1'));
+  const k2Pool = shuffle(srcFiltered.filter(q => (q.k_level || q.k) === 'K2'));
+  const k3Pool = shuffle(srcFiltered.filter(q => (q.k_level || q.k) === 'K3'));
+
+  // Target: K1=8, K2=24, K3=8
+  const picked = [
+    ...k1Pool.slice(0, 8),
+    ...k2Pool.slice(0, 24),
+    ...k3Pool.slice(0, 8)
+  ];
+
+  if (picked.length < 40) {
+    // If not enough K-level questions, fill from remaining
+    const pickedSet = new Set(picked);
+    const rest = shuffle(srcFiltered.filter(q => !pickedSet.has(q)));
+    picked.push(...rest.slice(0, 40 - picked.length));
+  }
+
+  return shuffle(picked.slice(0, 40));
+}
+
+window.beginExam = function() {
+  const questions = buildExamPool();
+  if (questions.length === 0) {
+    alert('אין שאלות מתאימות לפי הסינון שנבחר.');
+    return;
+  }
+  runQuiz(questions);
+};
+
 function beginQuiz() {
   const he = CURRENT_LANG === 'he';
   const selectedSrcs = getSelectedSources(he);
@@ -664,7 +739,8 @@ function beginQuiz() {
 }
 
 function runQuiz(questions) {
-  SESSION = { questions, idx: 0, correct: 0, wrong: 0, skipped: 0, answers: [], mode: SESSION.mode };
+  // answers array: null = unanswered, object = answered/skipped
+  SESSION = { questions, idx: 0, correct: 0, wrong: 0, skipped: 0, answers: new Array(questions.length).fill(null), mode: SESSION.mode };
   clearSpeedTimer();
   clearExamTimer();
   showScreen('quiz');
@@ -673,8 +749,88 @@ function runQuiz(questions) {
   // Show/hide exam timer
   const examTimerWrap = document.getElementById('exam-timer-wrap');
   if (examTimerWrap) examTimerWrap.classList.toggle('hidden', SESSION.mode !== 'exam');
+  // Show/hide exam nav bar
+  const examNavBar = document.getElementById('exam-nav-bar');
+  if (examNavBar) examNavBar.classList.toggle('hidden', SESSION.mode !== 'exam');
+  if (SESSION.mode === 'exam') renderExamNavBar();
   renderQuestion();
 }
+
+// ── Exam navigation bar ──
+function renderExamNavBar() {
+  const bar = document.getElementById('exam-nav-pills');
+  if (!bar) return;
+  bar.innerHTML = '';
+  SESSION.questions.forEach((q, i) => {
+    const pill = document.createElement('button');
+    pill.textContent = i + 1;
+    pill.style.cssText = `min-width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;font-size:0.75rem;font-weight:700;font-family:'Space Mono',monospace;transition:all 0.15s;padding:0 4px;`;
+    const ans = SESSION.answers[i];
+    if (i === SESSION.idx) {
+      pill.style.background = 'var(--accent)';
+      pill.style.color = '#fff';
+    } else if (ans === null) {
+      pill.style.background = 'var(--border)';
+      pill.style.color = 'var(--muted)';
+    } else if (ans.skipped) {
+      pill.style.background = 'var(--warning)';
+      pill.style.color = '#fff';
+    } else if (ans.correct) {
+      pill.style.background = 'var(--success)';
+      pill.style.color = '#fff';
+    } else {
+      pill.style.background = 'var(--error)';
+      pill.style.color = '#fff';
+    }
+    // Only allow navigation to answered/skipped questions or current
+    const canNav = ans !== null || i === SESSION.idx;
+    if (canNav) {
+      pill.onclick = () => navigateToExamQuestion(i);
+      pill.title = ans === null ? 'שאלה נוכחית' : (ans.skipped ? 'דולג — לחץ לחזרה' : (ans.correct ? 'נכון' : 'שגוי'));
+    } else {
+      pill.style.cursor = 'default';
+      pill.style.opacity = '0.7';
+    }
+    bar.appendChild(pill);
+  });
+}
+
+function navigateToExamQuestion(idx) {
+  if (idx === SESSION.idx) return;
+  const ans = SESSION.answers[idx];
+  // Can only navigate to already-answered/skipped questions
+  if (ans === null) return;
+  SESSION.idx = idx;
+  renderQuestion();
+}
+
+window.goBackExam = function() {
+  // Find the previous answered/skipped question
+  for (let i = SESSION.idx - 1; i >= 0; i--) {
+    if (SESSION.answers[i] !== null) {
+      SESSION.idx = i;
+      renderQuestion();
+      return;
+    }
+  }
+};
+
+window.finishExam = function() {
+  const he = CURRENT_LANG === 'he';
+  const unanswered = SESSION.answers.filter(a => a === null).length;
+  if (unanswered > 0) {
+    if (!confirm(he ? `נותרו ${unanswered} שאלות ללא מענה. לסיים בחינה?` : `${unanswered} questions unanswered. Finish exam?`)) return;
+    // Mark remaining unanswered as skipped
+    SESSION.answers.forEach((a, i) => {
+      if (a === null) {
+        SESSION.answers[i] = { q: SESSION.questions[i], chosen: -1, correct: false, skipped: true };
+        SESSION.skipped++;
+      }
+    });
+  }
+  showResults();
+};
+
 
 function renderQuestion() {
   const q = SESSION.questions[SESSION.idx];
@@ -764,8 +920,61 @@ function renderQuestion() {
   exp.classList.add('hidden');
   exp.innerHTML = '';
 
-  document.getElementById('btn-skip').classList.remove('hidden');
-  document.getElementById('btn-next').classList.add('hidden');
+  // Update exam nav bar
+  if (SESSION.mode === 'exam') renderExamNavBar();
+
+  // Check if this question was already answered (exam navigation)
+  const existingAnswer = SESSION.answers[SESSION.idx];
+  const isAnswered = existingAnswer !== null;
+  const isExam = SESSION.mode === 'exam';
+
+  if (isAnswered && isExam) {
+    // Show the question in read-only state with correct/wrong highlighted
+    const allOptBtns = opts.querySelectorAll('.option:not(.multi-confirm)');
+    allOptBtns.forEach(b => b.classList.add('disabled'));
+
+    if (existingAnswer.skipped) {
+      // Skipped — show correct answer
+      if (!Array.isArray(q.ans)) {
+        const correctBtn = opts.children[q.ans + (Array.isArray(q.ans) ? 0 : 0)];
+        if (correctBtn) correctBtn.classList.add('correct');
+      }
+    } else {
+      // Was answered — restore visual state
+      if (existingAnswer.chosenMulti) {
+        allOptBtns.forEach(b => {
+          const i = parseInt(b.dataset.idx);
+          const wasChosen = existingAnswer.chosenMulti.includes(i);
+          const correct = Array.isArray(q.ans) ? q.ans : [q.ans];
+          const isAns = correct.includes(i);
+          if (wasChosen && isAns) b.classList.add('correct');
+          else if (wasChosen) b.classList.add('wrong');
+          else if (isAns) b.classList.add('correct');
+        });
+      } else {
+        const chosenBtn = opts.children[existingAnswer.chosen];
+        if (chosenBtn) chosenBtn.classList.add(existingAnswer.correct ? 'correct' : 'wrong');
+        if (!existingAnswer.correct && !Array.isArray(q.ans)) {
+          const correctBtn = opts.children[q.ans];
+          if (correctBtn) correctBtn.classList.add('correct');
+        }
+      }
+    }
+
+    if (q.exp && !existingAnswer.skipped) {
+      exp.innerHTML = `<strong>${CURRENT_LANG === 'he' ? 'הסבר' : 'Explanation'}</strong>${formatExplanation(q.exp, q.ans)}`;
+      exp.classList.remove('hidden');
+    }
+
+    // Footer: back button + "continue to next unanswered" button
+    document.getElementById('btn-skip').classList.add('hidden');
+    document.getElementById('btn-next').classList.add('hidden');
+    updateExamFooter();
+  } else {
+    document.getElementById('btn-skip').classList.remove('hidden');
+    document.getElementById('btn-next').classList.add('hidden');
+    updateExamFooter();
+  }
 
   const card = document.getElementById('q-card');
   card.style.animation = 'none';
@@ -774,8 +983,43 @@ function renderQuestion() {
 
   // Start speed timer if in speed mode
   if (SPEED_MODE) startSpeedTimer();
-  // Start exam timer if in exam mode (only on first question)
-  if (SESSION.mode === 'exam' && SESSION.idx === 0) startExamTimer();
+  // Start exam timer if in exam mode (only on first question of the session)
+  if (SESSION.mode === 'exam' && EXAM_TIMER_INTERVAL === null) startExamTimer();
+}
+
+function updateExamFooter() {
+  if (SESSION.mode !== 'exam') {
+    document.getElementById('btn-back-exam').classList.add('hidden');
+    document.getElementById('btn-finish-exam').classList.add('hidden');
+    return;
+  }
+
+  const existingAnswer = SESSION.answers[SESSION.idx];
+  const isAnswered = existingAnswer !== null;
+
+  // Back button: show if there's a previous answered question
+  const hasPrev = SESSION.answers.slice(0, SESSION.idx).some(a => a !== null);
+  document.getElementById('btn-back-exam').classList.toggle('hidden', !hasPrev);
+
+  // Finish button: show only when all questions are answered
+  const allAnswered = SESSION.answers.every(a => a !== null);
+  document.getElementById('btn-finish-exam').classList.toggle('hidden', !allAnswered);
+
+  // "Next unanswered" button: show when viewing an already-answered question and there are still unanswered ones
+  const hasUnanswered = SESSION.answers.some(a => a === null);
+  const btnNext = document.getElementById('btn-next');
+  if (isAnswered && hasUnanswered) {
+    // Repurpose btn-next as "continue to next unanswered"
+    btnNext.classList.remove('hidden');
+    btnNext.textContent = 'המשך ←';
+    btnNext.onclick = advanceOrFinish;
+  } else if (!isAnswered) {
+    // Fresh unanswered question — skip/next handled by answer logic
+    btnNext.classList.add('hidden');
+  } else {
+    // All answered, just show finish
+    btnNext.classList.add('hidden');
+  }
 }
 
 function toggleMultiOption(btn, q) {
@@ -824,10 +1068,10 @@ async function submitMultiAnswer(q) {
   }
   if (isCorrect) {
     SESSION.correct++;
-    SESSION.answers.push({ q, chosen: chosen[0], correct: true, chosenMulti: chosen });
+    SESSION.answers[SESSION.idx] = { q, chosen: chosen[0], correct: true, chosenMulti: chosen };
   } else {
     SESSION.wrong++;
-    SESSION.answers.push({ q, chosen: chosen[0], correct: false, chosenMulti: chosen });
+    SESSION.answers[SESSION.idx] = { q, chosen: chosen[0], correct: false, chosenMulti: chosen };
     if (gIdx >= 0 && !WRONG_IDS.includes(gIdx)) WRONG_IDS.push(gIdx);
   }
 
@@ -841,6 +1085,8 @@ async function submitMultiAnswer(q) {
   }
   document.getElementById('btn-skip').classList.add('hidden');
   document.getElementById('btn-next').classList.remove('hidden');
+  updateExamFooter();
+  if (SESSION.mode === 'exam') renderExamNavBar();
 }
 
 async function selectOption(idx) {
@@ -862,12 +1108,12 @@ async function selectOption(idx) {
   if (idx === q.ans) {
     opts[idx].classList.add('correct');
     SESSION.correct++;
-    SESSION.answers.push({ q, chosen: idx, correct: true });
+    SESSION.answers[SESSION.idx] = { q, chosen: idx, correct: true };
   } else {
     opts[idx].classList.add('wrong');
     opts[q.ans].classList.add('correct');
     SESSION.wrong++;
-    SESSION.answers.push({ q, chosen: idx, correct: false });
+    SESSION.answers[SESSION.idx] = { q, chosen: idx, correct: false };
     const globalIdx = ACTIVE_Q.indexOf(q);
     if (globalIdx >= 0 && !WRONG_IDS.includes(globalIdx)) {
       WRONG_IDS.push(globalIdx);
@@ -887,6 +1133,8 @@ async function selectOption(idx) {
   document.getElementById('btn-skip').classList.add('hidden');
   document.getElementById('btn-next').classList.remove('hidden');
   document.getElementById('score-live').textContent = `✓ ${SESSION.correct} · ✗ ${SESSION.wrong}`;
+  updateExamFooter();
+  if (SESSION.mode === 'exam') renderExamNavBar();
 }
 
 function reportQuestion() {
@@ -937,16 +1185,39 @@ function reportGeneral() {
 function skipQuestion() {
   clearSpeedTimer();
   SESSION.skipped++;
-  SESSION.answers.push({ q: SESSION.questions[SESSION.idx], chosen: -1, correct: false, skipped: true });
+  SESSION.answers[SESSION.idx] = { q: SESSION.questions[SESSION.idx], chosen: -1, correct: false, skipped: true };
   advanceOrFinish();
 }
 
 function nextQuestion() { advanceOrFinish(); }
 
 function advanceOrFinish() {
-  SESSION.idx++;
-  if (SESSION.idx >= SESSION.questions.length) showResults();
-  else renderQuestion();
+  if (SESSION.mode === 'exam') {
+    // In exam mode: find next unanswered question
+    const total = SESSION.questions.length;
+    let next = -1;
+    // First look forward from current
+    for (let i = SESSION.idx + 1; i < total; i++) {
+      if (SESSION.answers[i] === null) { next = i; break; }
+    }
+    // If none found forward, wrap around from start
+    if (next === -1) {
+      for (let i = 0; i < SESSION.idx; i++) {
+        if (SESSION.answers[i] === null) { next = i; break; }
+      }
+    }
+    if (next === -1) {
+      // All answered
+      showResults();
+    } else {
+      SESSION.idx = next;
+      renderQuestion();
+    }
+  } else {
+    SESSION.idx++;
+    if (SESSION.idx >= SESSION.questions.length) showResults();
+    else renderQuestion();
+  }
 }
 
 function confirmQuit() {
@@ -958,6 +1229,10 @@ async function showResults() {
   clearExamTimer();
   showScreen('results');
   const total = SESSION.questions.length;
+  // Recalculate from answers array (handles exam navigation edge cases)
+  SESSION.correct = SESSION.answers.filter(a => a && a.correct).length;
+  SESSION.wrong   = SESSION.answers.filter(a => a && !a.correct && !a.skipped).length;
+  SESSION.skipped = SESSION.answers.filter(a => a && a.skipped).length;
   const pct = Math.round((SESSION.correct / total) * 100);
   const pass = pct >= 65;
   const he = CURRENT_LANG === 'he';
@@ -1031,6 +1306,7 @@ function buildReview() {
   const letters = CURRENT_LANG === 'he' ? ['א','ב','ג','ד','ה','ו'] : ['A','B','C','D','E','F'];
   const he = CURRENT_LANG === 'he';
   SESSION.answers.forEach((a, i) => {
+    if (!a) return; // skip null (shouldn't happen after showResults, but safety check)
     const div = document.createElement('div');
     div.className = 'review-item ' + (a.correct ? 'correct-item' : 'wrong-item');
     let answerLine = '';
@@ -1369,7 +1645,7 @@ async function startSpeedTimer() {
       opts.forEach(o => o.classList.add('disabled'));
       opts[q.ans].classList.add('correct');
       SESSION.wrong++;
-      SESSION.answers.push({ q, chosen: -1, correct: false, timeout: true });
+      SESSION.answers[SESSION.idx] = { q, chosen: -1, correct: false, timeout: true };
       const gIdx = ACTIVE_Q.indexOf(q);
       if (gIdx >= 0) {
         ANSWERED_IDS.push(gIdx);
