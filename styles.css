@@ -247,7 +247,7 @@
   }
 
   /* ========== CONFIG ========== */
-  #config {
+  #config, #exam-config {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
