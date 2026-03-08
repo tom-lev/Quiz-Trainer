@@ -294,7 +294,7 @@ function setLang(lang) {
     mc('mc-title-exam').textContent   = he ? 'סימולציית בחינה' : 'Full Exam Simulation';
     mc('mc-desc-exam').textContent    = he ? '40 שאלות המדמות תנאי ISTQB אמיתיים.' : '40-question exam simulating real ISTQB conditions.';
     mc('mc-count-exam').textContent   = he ? '40 שאלות' : '40 Questions';
-    mc('mc-title-speed').textContent  = he ? 'מצב בזק' : 'Speed Mode';
+    mc('mc-title-speed').textContent  = he ? 'שאלות על זמן' : 'Speed Mode';
     mc('mc-desc-speed').textContent   = he ? `${SPEED_SECONDS} שניות לשאלה — טעות אוטומטית אם לא עונים בזמן.` : `${SPEED_SECONDS} seconds per question — auto-wrong if time runs out.`;
     mc('mc-count-speed').textContent  = he ? `${SPEED_SECONDS} שנ׳ לשאלה` : `${SPEED_SECONDS}s / question`;
   }
@@ -309,7 +309,7 @@ function setLang(lang) {
   if (navLabelSaved) navLabelSaved.textContent = he ? 'שמור' : 'Saved';
   if (navLblRandom) navLblRandom.childNodes[0].textContent = he ? 'חידון אקראי' : 'Random Quiz';
   if (navLblExam)   navLblExam.childNodes[0].textContent   = he ? 'סימולציית בחינה' : 'Exam Sim';
-  if (navLblSpeed)  navLblSpeed.childNodes[0].textContent  = he ? 'מצב בזק' : 'Speed Mode';
+  if (navLblSpeed)  navLblSpeed.childNodes[0].textContent  = he ? 'שאלות על זמן' : 'Speed Mode';
 
   const navThemeLabel = document.getElementById('nav-theme-label');
   if (navThemeLabel) navThemeLabel.textContent = he ? 'מצב לילה' : 'Dark mode';
@@ -564,7 +564,7 @@ function startMode(mode) {
 
   if (mode === 'random' || mode === 'speed') {
     document.getElementById('config-title').textContent = mode === 'speed'
-      ? (he ? '⚡🔥 מצב בזק' : '⚡🔥 Speed Mode')
+      ? (he ? '⚡🔥 שאלות על זמן' : '⚡🔥 Speed Mode')
       : (he ? '🎲 חידון אקראי' : '🎲 Random Quiz');
 
     // Slider: 5,10,...,40 are real values; 45 = "∞ הכל"
