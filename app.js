@@ -2550,4 +2550,3 @@ function mgRoundComplete() {
 }
 
 let MG_REMAINING_POOL = [];
-
