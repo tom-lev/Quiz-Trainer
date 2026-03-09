@@ -602,6 +602,8 @@ function startMode(mode) {
     showScreen('config');
   } else if (mode === 'exam') {
     showScreen('exam-config');
+  } else if (mode === 'streak') {
+    startStreakMode();
   } else if (mode === 'wrong') {
     const wqs = ACTIVE_Q.filter((q, i) => WRONG_IDS.includes(i));
     if (wqs.length === 0) {
@@ -1118,6 +1120,7 @@ async function selectOption(idx) {
     SESSION.correct++;
     SESSION.answers[SESSION.idx] = { q, chosen: idx, correct: true };
     SFX.correct();
+    if (SESSION.mode === 'streak') streakOnCorrect();
   } else {
     opts[idx].classList.add('wrong');
     opts[q.ans].classList.add('correct');
@@ -1128,6 +1131,7 @@ async function selectOption(idx) {
       WRONG_IDS.push(globalIdx);
     }
     SFX.wrong();
+    if (SESSION.mode === 'streak') { setTimeout(streakGameOver, 900); return; }
   }
 
   await persistData();
@@ -2572,6 +2576,121 @@ function mgRoundComplete() {
 }
 
 let MG_REMAINING_POOL = [];
+
+
+// ═══════════════════════════════════════════════════════════════
+// STREAK MODE
+// ═══════════════════════════════════════════════════════════════
+
+let STREAK_CURRENT = 0;
+let STREAK_BEST    = 0;  // session best; loaded from localStorage
+
+(function loadStreakBest() {
+  try { STREAK_BEST = parseInt(localStorage.getItem('istqb_streak_best')) || 0; } catch(e) {}
+})();
+
+function saveStreakBest() {
+  try { localStorage.setItem('istqb_streak_best', STREAK_BEST); } catch(e) {}
+}
+
+function startStreakMode() {
+  STREAK_CURRENT = 0;
+  const pool = shuffle([...ACTIVE_Q]);
+  SESSION.mode = 'streak';
+  runQuiz(pool);
+
+  // Show streak bar, hide normal score
+  const streakBar = document.getElementById('streak-bar');
+  const scoreBadge = document.getElementById('score-live');
+  if (streakBar)  streakBar.classList.remove('hidden');
+  if (scoreBadge) scoreBadge.classList.add('hidden');
+
+  updateStreakDisplay();
+  updateStreakBestBadge();
+
+  // Hide skip button in streak mode
+  const btnSkip = document.getElementById('btn-skip');
+  if (btnSkip) btnSkip.classList.add('hidden');
+}
+
+function streakOnCorrect() {
+  STREAK_CURRENT++;
+  updateStreakDisplay();
+
+  // Milestone sounds: every 5 correct in a row
+  if (STREAK_CURRENT > 0 && STREAK_CURRENT % 5 === 0) {
+    SFX.roundComplete();
+  }
+}
+
+function updateStreakDisplay() {
+  const el = document.getElementById('streak-counter');
+  if (el) {
+    const emoji = STREAK_CURRENT >= 20 ? '🏆' : STREAK_CURRENT >= 10 ? '🔥' : STREAK_CURRENT >= 5 ? '⚡' : '🔥';
+    el.textContent = `${emoji} ${STREAK_CURRENT}`;
+    // Pulse animation on update
+    el.style.transform = 'scale(1.3)';
+    setTimeout(() => { el.style.transform = 'scale(1)'; el.style.transition = 'transform 0.2s'; }, 150);
+  }
+}
+
+function updateStreakBestBadge() {
+  const el = document.getElementById('streak-best-badge');
+  if (el) el.textContent = `שיא: ${STREAK_BEST || '—'}`;
+  // Also update home card
+  const homeEl = document.getElementById('streak-best-home');
+  if (homeEl) homeEl.textContent = `שיא: ${STREAK_BEST || '—'}`;
+}
+
+function streakGameOver() {
+  const isNewBest = STREAK_CURRENT > STREAK_BEST;
+  if (isNewBest) {
+    STREAK_BEST = STREAK_CURRENT;
+    saveStreakBest();
+    updateStreakBestBadge();
+  }
+
+  const overlay = document.getElementById('streak-gameover');
+  const finalEl = document.getElementById('streak-final');
+  const newBestEl = document.getElementById('streak-new-best');
+  const prevBestLine = document.getElementById('streak-prev-best-line');
+
+  if (finalEl)    finalEl.textContent = STREAK_CURRENT;
+  if (newBestEl)  newBestEl.classList.toggle('hidden', !isNewBest);
+  if (prevBestLine) {
+    prevBestLine.textContent = isNewBest
+      ? `השיא הקודם שלך היה ${STREAK_BEST === STREAK_CURRENT ? 0 : STREAK_BEST}`
+      : `השיא שלך: ${STREAK_BEST}`;
+  }
+  if (overlay) overlay.classList.remove('hidden');
+
+  SFX.quizFail();
+}
+
+function streakQuit() {
+  const overlay = document.getElementById('streak-gameover');
+  if (overlay) overlay.classList.add('hidden');
+  // Restore UI
+  const streakBar = document.getElementById('streak-bar');
+  const scoreBadge = document.getElementById('score-live');
+  if (streakBar)  streakBar.classList.add('hidden');
+  if (scoreBadge) scoreBadge.classList.remove('hidden');
+  navTo('home');
+}
+
+// Make sure streak UI resets when leaving quiz normally
+const _origShowScreen = window.showScreen;
+window.showScreen = function(id) {
+  if (id !== 'quiz' && SESSION.mode === 'streak') {
+    const streakBar  = document.getElementById('streak-bar');
+    const scoreBadge = document.getElementById('score-live');
+    const overlay    = document.getElementById('streak-gameover');
+    if (streakBar)  streakBar.classList.add('hidden');
+    if (scoreBadge) scoreBadge.classList.remove('hidden');
+    if (overlay)    overlay.classList.add('hidden');
+  }
+  if (_origShowScreen) return _origShowScreen.call(this, id);
+};
 
 
 // ═══════════════════════════════════════════════════════════════
