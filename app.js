@@ -520,15 +520,36 @@ function updateStatsPage() {
     if (QUIZ_HISTORY.length === 0) {
       histEl.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:1rem">עדיין אין היסטוריה — השלם חידון כדי להתחיל</div>';
     } else {
-      const modeNames = { random: '🎲 אקראי', exam: '📋 סימולציה', wrong: '⚡ שגיאות', source: '📚 לפי מקור' };
+      const modeNames = { random: '🎲 אקראי', exam: '📋 סימולציה', wrong: '⚡ שגיאות', source: '📚 לפי מקור', speed: '⚡ מהירות', streak: '🔥 רצף' };
       histEl.innerHTML = [...QUIZ_HISTORY].reverse().map(h => {
         const d = new Date(h.date);
         const dateStr = d.toLocaleDateString('he-IL') + ' ' + d.toLocaleTimeString('he-IL', {hour:'2-digit',minute:'2-digit'});
         const pass = h.passed;
+
+        // Sources
+        const srcLine = (h.sources && h.sources.length > 0)
+          ? `<div class="hi-detail">📚 ${h.sources.join(', ')}</div>`
+          : '';
+
+        // K-levels
+        const kLine = (h.kLevels && h.kLevels.length > 0)
+          ? `<div class="hi-detail">🎯 ${h.kLevels.join(' · ')}</div>`
+          : '';
+
+        // Duration (only for exam mode)
+        const durLine = (h.mode === 'exam' && h.duration != null)
+          ? (() => {
+              const m = Math.floor(h.duration / 60);
+              const s = h.duration % 60;
+              return `<div class="hi-detail">⏱️ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} דקות</div>`;
+            })()
+          : '';
+
         return `<div class="history-item">
           <div class="hi-score ${pass ? 'pass' : 'fail'}">${h.score}%</div>
           <div class="hi-meta">
             <div>${modeNames[h.mode] || h.mode} · ${h.correct}/${h.total} נכון</div>
+            ${srcLine}${kLine}${durLine}
             <div style="font-size:0.72rem;margin-top:0.2rem">${dateStr}</div>
           </div>
           <div class="hi-badge ${pass ? 'pass' : 'fail'}">${pass ? 'עבר' : 'נכשל'}</div>
@@ -1300,6 +1321,11 @@ async function showResults() {
   updateWrongCount();
 
   // Save quiz to local history + cloud
+  const _sessionSrcs = [...new Set(SESSION.questions.map(q => q.src).filter(Boolean))];
+  const _sessionKs   = [...new Set(SESSION.questions.map(q => q.k_level || q.k).filter(Boolean))].sort();
+  const _examDuration = (SESSION.mode === 'exam' && EXAM_START_TIME)
+    ? Math.round((Date.now() - EXAM_START_TIME) / 1000)
+    : null;
   const historyEntry = {
     date: new Date().toISOString(),
     mode: SESSION.mode,
@@ -1308,7 +1334,10 @@ async function showResults() {
     wrong: SESSION.wrong,
     skipped: SESSION.skipped,
     score: pct,
-    passed: pass
+    passed: pass,
+    sources:  _sessionSrcs,
+    kLevels:  _sessionKs,
+    duration: _examDuration
   };
   QUIZ_HISTORY.push(historyEntry);
   if (window._fbSaveQuizHistory && window._currentUser) {
@@ -1712,10 +1741,12 @@ function clearSpeedTimer() {
 // ── Exam Mode Countdown Timer (60 min) ──
 let EXAM_TIMER_INTERVAL = null;
 let EXAM_TIMER_SECONDS  = 0;
+let EXAM_START_TIME     = null;
 
 function startExamTimer() {
   clearExamTimer();
   EXAM_TIMER_SECONDS = 60 * 60;
+  EXAM_START_TIME    = Date.now();
   const display = document.getElementById('exam-timer-display');
   const fill    = document.getElementById('exam-timer-fill');
   if (fill) { fill.style.transition = 'none'; fill.style.width = '100%'; }
