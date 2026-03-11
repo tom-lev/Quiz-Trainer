@@ -1697,6 +1697,8 @@ async function saveNote() {
 }
 
 // ── Speed Mode Timer ──
+let SPEED_TICK_TIMEOUT = null; // separate handle for the tick scheduler
+
 async function startSpeedTimer() {
   clearSpeedTimer();
   const fill = document.getElementById('speed-timer-fill');
@@ -1705,10 +1707,29 @@ async function startSpeedTimer() {
   setTimeout(() => {
     if (fill) { fill.style.transition = `width ${SPEED_SECONDS}s linear`; fill.style.width = '0%'; }
   }, 50);
+
+  // ── Adaptive tick sound ──
+  // Tick interval shrinks from 2000ms (calm) to 250ms (urgent) as time runs out
+  const startedAt = Date.now();
+  const totalMs   = SPEED_SECONDS * 1000;
+
+  function scheduleTick() {
+    const elapsed  = Date.now() - startedAt;
+    const progress = Math.min(elapsed / totalMs, 1); // 0.0 → 1.0
+    const interval = 2000 - progress * 1750;         // 2000ms → 250ms
+    SFX.timerTick(progress);
+    if (progress < 1) {
+      SPEED_TICK_TIMEOUT = setTimeout(scheduleTick, interval);
+    }
+  }
+  // Start first tick after a short delay so it doesn't clash with question render sound
+  SPEED_TICK_TIMEOUT = setTimeout(scheduleTick, 600);
+
   SPEED_TIMER = setTimeout(() => {
     // Time's up — count as wrong, move on
     const opts = document.querySelectorAll('.option');
     if (opts.length && !opts[0].classList.contains('disabled')) {
+      SFX.timerAlarm();
       const q = SESSION.questions[SESSION.idx];
       opts.forEach(o => o.classList.add('disabled'));
       opts[q.ans].classList.add('correct');
@@ -1733,7 +1754,8 @@ async function startSpeedTimer() {
 }
 
 function clearSpeedTimer() {
-  if (SPEED_TIMER) { clearTimeout(SPEED_TIMER); SPEED_TIMER = null; }
+  if (SPEED_TIMER)        { clearTimeout(SPEED_TIMER);        SPEED_TIMER = null; }
+  if (SPEED_TICK_TIMEOUT) { clearTimeout(SPEED_TICK_TIMEOUT); SPEED_TICK_TIMEOUT = null; }
   const fill = document.getElementById('speed-timer-fill');
   if (fill) { fill.style.transition = 'none'; fill.style.width = '100%'; }
 }
@@ -2888,11 +2910,31 @@ const SFX = (() => {
     tone({ freq: 440, type: 'sine', gain: 0.04, duration: 0.06, attack: 0.001, release: 0.05 });
   }
 
+  // Timer tick — urgency increases as time runs out
+  // progress: 0.0 (just started) → 1.0 (time is up)
+  function timerTick(progress) {
+    // Frequency rises from low calm (320Hz) to urgent high (900Hz)
+    const freq = 320 + Math.pow(progress, 2) * 580;
+    // Volume rises with urgency
+    const gain = 0.04 + progress * 0.10;
+    // Duration shrinks (tick gets sharper)
+    const duration = 0.055 - progress * 0.025;
+    tone({ freq, type: 'square', gain, duration, attack: 0.001, decay: 0.02, sustain: 0.1, release: duration * 0.6 });
+  }
+
+  // Urgent alarm at time-up
+  function timerAlarm() {
+    // Three descending blasts
+    [0, 120, 240].forEach((delay, i) => {
+      setTimeout(() => tone({ freq: 600 - i * 80, freq2: 300 - i * 40, type: 'sawtooth', gain: 0.15, duration: 0.18, attack: 0.002, release: 0.12 }), delay);
+    });
+  }
+
   function toggleMute() { muted = !muted; return muted; }
   function isMuted() { return muted; }
 
   return { correct, wrong, match, matchWrong, roundComplete, nextQuestion,
-           quizWin, quizFail, flipCard, markKnown, navClick, toggleMute, isMuted };
+           quizWin, quizFail, flipCard, markKnown, navClick, timerTick, timerAlarm, toggleMute, isMuted };
 })();
 
 // Expose globally
