@@ -2612,7 +2612,7 @@ window.beginStreakMode = function() {
 
   let pool = [...ACTIVE_Q];
   if (sources.length > 0) pool = pool.filter(q => sources.includes(q.src));
-  if (klevel !== 'all')   pool = pool.filter(q => q.k == klevel || q.k === klevel);
+  if (klevel !== 'all')   pool = pool.filter(q => (q.k_level || q.k) === klevel);
 
   const he = CURRENT_LANG === 'he';
   if (pool.length === 0) {
